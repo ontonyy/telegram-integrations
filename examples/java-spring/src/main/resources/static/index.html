@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telegram Mini App validation demo</title>
+  <script src="https://telegram.org/js/telegram-web-app.js?65"></script>
+  <style>
+    body { font: 16px system-ui, sans-serif; margin: 2rem auto; max-width: 38rem; padding: 0 1rem; }
+    button { padding: .7rem 1rem; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <h1>Mini App launch validation</h1>
+  <p>This page sends raw Telegram initData to the Java backend for signature verification.</p>
+  <button id="verify">Verify this launch</button>
+  <pre id="result">Open this page inside Telegram using a configured Mini App launch to verify.</pre>
+  <script>
+    const app = window.Telegram?.WebApp;
+    app?.ready();
+    document.querySelector('#verify').addEventListener('click', async () => {
+      if (!app?.initData) {
+        document.querySelector('#result').textContent = 'No Telegram initData. A normal browser launch is not authenticated.';
+        return;
+      }
+      const response = await fetch('/api/miniapp/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: app.initData })
+      });
+      document.querySelector('#result').textContent = await response.text();
+    });
+  </script>
+</body>
+</html>

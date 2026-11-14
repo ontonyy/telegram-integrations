@@ -5,6 +5,7 @@
 ## Start here
 
 - [Capability map and comparison](capability-map.md) — Bot API, Business, Mini Apps, TDLib, connectors, MCP.
+- [Groups, topics and shared Mini Apps](groups-and-topics.md) — privacy mode, explicit actions, forum topics and shared group context.
 - [Customer support](support.md) — bot vs Business vs helpdesk, handoff and sender identity.
 - [Sales and CRM](sales-crm.md) — lead capture, assignment, reminders, CRM connectors.
 - [Customer services, orders and payments](customer-services.md) — appointments, status, checkout and Stars.
@@ -12,10 +13,12 @@
 - [Internal processes](internal-processes.md) — employee requests, IT, approvals and knowledge.
 - [Marketing and communities](marketing.md) — channels, opt-in, broadcasts and limits.
 - [AI and Telegram data](ai-and-data.md) — consent boundaries and data access by integration type.
+- [Claude, Codex and Telegram](ai-codex-claude.md) — model interface vs Telegram data source, MCP and current environment snapshot.
 - [Technical integrations](technical-integrations.md) — GitHub, Jira, CI/CD, Grafana, Java/Spring.
 - [Product and connector catalog](product-catalog.md) — concrete tools, verified functions, pricing snapshots and caveats.
 - [Scenario catalog](scenario-catalog.md) — reusable end-to-end patterns and complexity.
 - [Technical notes](technical-notes.md) — Bot API, Telegram Business, Mini Apps, TDLib and Java.
+- [Runnable Java/Spring example](../examples/java-spring/README.md) — dry-run webhook, Mini App signature validation, optional consent-gated Claude API call.
 
 ## How to read the findings
 
@@ -27,4 +30,4 @@ Telegram-origin message content should not be sent to an AI system by default. S
 
 Prefer official Telegram, product, pricing, and project documentation. Pricing below is a dated page snapshot, often excluding taxes, usage, implementation, hosting, or region-specific terms. Validate the current plan and eligibility with the vendor before budgeting.
 
-**Checked date for every document:** 2026-11-14.
+**Checked date for every document and catalog entry:** 2026-11-14.

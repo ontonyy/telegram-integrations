@@ -42,9 +42,11 @@ Design AI features to avoid ingesting Telegram-origin content by default. Before
 - Validate Mini App `initData` on the backend; do not trust user identity or authorization from browser fields alone.
 - Request only the data and permissions the feature needs. Explain retention and deletion to users.
 
-## Planned Java examples
+## Practical knowledge and Java example
 
-The examples are tracked in [tasks/1.md](tasks/1.md). They are not implemented yet.
+The dated ecosystem research is indexed in [02-research/README.md](02-research/README.md). It includes connector capabilities and limits, customer and internal workflows, groups/topics, AI access boundaries, and Telegram technical notes. Russian reader copies are indexed in [ru/README.md](ru/README.md).
+
+A small Java 25 / Spring Boot sample is available in [examples/java-spring](examples/java-spring/README.md): dry-run Bot API webhook, Mini App `initData` verification, and optional consent-gated Claude API call. No credentials are included and outbound messages are disabled by default. TDLib and bounded file intake remain in [tasks/1.md](tasks/1.md).
 
 ## Project-specific opportunities
 
