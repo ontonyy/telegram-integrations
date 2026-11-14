@@ -1,6 +1,6 @@
 # Telegram opportunities for CVNoor
 
-**Status:** exploration only. **Checked against local project documentation:** 2026-11-14. Nothing here is implemented or approved product behavior.
+**Status:** project opportunities and priorities only. **Checked:** 2026-11-14. The API already has internal Telegram operational/release notifications in source, but this document does not approve new customer messaging or Mini App behavior. See [pilot priorities and current baseline](telegram-pilot-priorities.md).
 
 ## Project context
 
@@ -59,8 +59,10 @@ See the general [support](../../02-research/support.md), [AI and data boundaries
 5. Privacy/safeguarding and age-appropriate communication review before any candidate campaign or AI processing.
 6. Determine whether email, in-product notification or web push already satisfies the need before adding Telegram.
 
-## Proposed first pilot
+## Updated pilot recommendation
 
-Start with an employer-side internal pilot: an authorized company member explicitly opts in, and receives a generic alert when a new application arrives, with a deep link to the existing authenticated applicant view. Keep candidate contact/CV data out of Telegram. Add delivery/opt-out support and test authorization before considering candidate messages.
+The API source already contains internal release/workflow and operational alert paths. First reconcile those existing alert tasks and verify non-production delivery through an approved synthetic signal. That work is separate from a customer-facing pilot.
 
-This is a proposal, not a statement that the underlying application event, notification preference, consent, event delivery, or access check is ready. See [task seeds](tasks.md) and the [API work notes](../cvnoor-api/README.md).
+For the first new user-facing pilot, consider an employer-side application alert: an authorized company member explicitly opts in, receives generic text and opens the existing authenticated applicant view. Keep candidate contact/CV data out of Telegram. Add user linking, preference/opt-out, idempotency and current authorization checks before sending. Candidate messages should follow only after age, safeguarding, consent and channel-overlap decisions.
+
+This remains a proposal, not a statement that the underlying application event, user notification preference, consent, delivery or access check is ready. See [product task seeds](tasks.md), the [API work notes](../cvnoor-api/README.md) and the [role-based pilot priorities](telegram-pilot-priorities.md).

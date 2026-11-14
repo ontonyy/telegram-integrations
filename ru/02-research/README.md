@@ -16,6 +16,7 @@
 - [Claude, Codex и Telegram](ai-codex-claude.md) — интерфейс AI и источник данных, MCP и снимок текущего окружения.
 - [Технические интеграции](technical-integrations.md) — GitHub, Jira, CI/CD, Grafana, Java/Spring.
 - [Каталог продуктов и коннекторов](product-catalog.md) — назначение, функции, снимки цен и ограничения.
+- [Обзор реальных реализаций](implementation-landscape.md) — проверенные по исходникам мосты к агентам, MCP/TDLib-коннекторы истории, поддержка, сценарии и границы безопасности.
 - [Каталог сценариев](scenario-catalog.md) — практические схемы и небольшие пилоты.
 - [Технические заметки](technical-notes.md) — Bot API, Business, Mini Apps, TDLib и Java.
 - [Пример Java/Spring Boot](../../examples/java-spring/README.md) — dry-run webhook, проверка Mini App и опциональный Claude API.

@@ -3,7 +3,7 @@
 **Checked:** 2026-11-14. Prices are snapshots from vendor pages; currency, billing cadence, region, taxes, promotions, AI usage, seats and limits can change. Confirm checkout terms before purchase.
 
 | Product | Telegram connection and documented function | Price snapshot / cost model | Caveat | Checked |
-|---|---|---|---|
+|---|---|---|---|---|
 | [Kommo Telegram](https://www.kommo.com/integrations/telegram/) | Native bot integration; incoming chats create leads, history in lead card, CRM replies, Salesbot automation | Plans page: Base $25, Advanced $35, Pro $45 per user/month; minimum six-month billing stated on page | Native path uses BotFather token, not a user account. Connector limits can differ by plan/pipeline. | 2026-11-14 |
 | [Kommo + Whatcrm app](https://www.kommo.com/integrations/telegram-from-whatcrm/) | Third-party marketplace listing claims QR/phone-account synchronization and multiple accounts | Listing/vendor dependent | Not Kommo native or Telegram official. Account session access is sensitive; independently audit vendor, policies, session storage and deletion. Claims not independently verified. | 2026-11-14 |
 | [Chatwoot](https://www.chatwoot.com/features/telegram-integration) | Bot channel shared inbox, assignment, notes, labels, automation, attachments; Chatwoot documents Business Bot support from v4.3 and auto-detects Business mode | Cloud: Free $0/agent up to 2 agents/500 conversations but Telegram not on Free; Startups $19/agent/month, Business $39/agent/month. AI credits extra (page: $20/1,000). Self-host software Community Edition is MIT; infrastructure extra. | 24-hour reply window; Chatwoot documents possible bot-vs-business sender confusion if the same bot was used in standard mode. Use a dedicated Business bot/inbox and validate message types. Cloud data location and contract terms matter. | 2026-11-14 |
@@ -25,6 +25,25 @@
 - [Grafana](https://github.com/grafana/grafana): AGPL-3.0, includes alerting integrations.
 - [n8n](https://github.com/n8n-io/n8n): source-available Sustainable Use License, not OSI open-source.
 - [Telegram Bot API server](https://github.com/tdlib/telegram-bot-api): self-hosted Bot API endpoint server, Boost license; it does not turn a bot into a user-account client.
+
+## Source-reviewed coding-agent bridges and history readers
+
+Checked 2026-11-14 from current GitHub repository metadata, READMEs and selected security/source files. None was installed or run in this research. “Self-hosted” means there is no vendor cloud bridge in the described mode; it does not mean safe by default.
+
+| Project | Project type | Documented use | License / cost model | Material caveat |
+|---|---|---|---|---|
+| [Untether](https://github.com/littlebearapps/untether) | Full self-hosted CLI bridge application | Claude Code, Codex, OpenCode, Pi and others; DM/group topics, sender sessions, approvals, files and voice | MIT; software no fee, host/model/speech costs remain | Requires `allowed_user_ids`; agent still has host-user OS access. Group members who can direct it are trusted operators. |
+| [Agent2Telegram](https://github.com/petrludwig-collab/Agent2Telegram) | Standalone local Python bridge | Claude Code, Codex, Antigravity; long polling; attaches to/starts local CLI sessions | MIT; software no fee, host/agent costs remain | Fresh-session wizard documents permission/sandbox bypass flags. For a safe trial, attach to an already normally sandboxed interactive session. |
+| [C3](https://github.com/andrometiq/c3) | Self-hosted Go broker + MCP adapters | Many local CLI sessions, forum-topic routing, queue and permission cards | MIT; local host/model costs remain | Project explicitly says every member of paired group can send agent input, even though only DM-paired operator can approve specific Claude prompts. Preview-channel integration and platform maturity need review. |
+| [TeleCode](https://github.com/ErnisBadmae/TeleCode) | Early TypeScript bridge application; no npm release pipeline per README | Codex and Claude Code, sandbox profiles, sessions, optional Docker | MIT; self-host/model costs | Very new. README documents allowlisted IDs and opt-in unsafe profiles; group support was not found in docs. |
+| [CCBot](https://github.com/six-ddc/ccbot) | Self-hosted Claude Code + tmux application | Forum topic per tmux window/session, terminal output, permission prompts | MIT; host/model costs | Guide discusses `--dangerously-skip-permissions` for headless hosts. Use with normal approval and limited OS access. |
+| [Codex on Telegram](https://github.com/leoshenzh/codex-on-telegram) | Self-hosted local-session bridge | Claude Code/Codex session control, described as macOS daemon | Repository license and hosting/provider costs; verify current metadata | Platform scope is narrow in README; inspect current release, access controls and sandbox before use. |
+| [telegram-mcp-readonly](https://github.com/mshykhov/telegram-mcp-readonly) | Self-hosted MCP application using Telethon user session | Search/read account-visible chats, history/topics and download attachments | Apache-2.0; local host costs | Source defaults to strict named read-only MCP tool allowlist and confines downloads. Source also includes mutating tools and broader modes; the Telegram user session itself is not read-only. AI use is separately restricted by Telegram terms. |
+| [tdl-mcp](https://github.com/rixile9999/tdl-mcp) | Early JavaScript MCP wrapper around `tdl` | Read chat/message content and download media per project README | MIT; host costs | Very low adoption; user session and local CLI are still sensitive. Not a Telegram-side read-only account. |
+| [tdlib-mcp](https://github.com/xhns/tdlib-mcp) | Recent Rust MCP prototype around TDLib | Long-lived user client; read tools and write-capable tools in project source | Apache-2.0; host costs | Verify exact read-only flag and tool set. TDLib session remains a full user client. |
+| [telegram-archive-mcp](https://github.com/GeiserX/telegram-archive-mcp) | MCP application over imported archive | Search/browse exported Telegram data, not an inherently live connector | GPL-3.0; host costs | Import does not itself authorize AI indexing. Confirm export format, retention/deletion, source references and license obligations. |
+
+See [implementation landscape](implementation-landscape.md) for source-level permission details, trust models, exact use patterns and support comparisons. These projects are not security endorsements; check current commit and security history before installing.
 
 ## Other CRM candidates
 

@@ -1,0 +1,121 @@
+# Telegram implementation landscape: real applications, bridges and data connectors
+
+**Checked:** 2026-11-14. Repository metadata, project documentation and selected source files were inspected. No third-party project was installed or run. GitHub default branches move; review the linked source before adopting a project.
+
+## How to interpret this catalog
+
+- **Application** means a user-facing or self-hosted service with its own runtime and operating instructions.
+- **Bridge** means a transport/control layer that connects Telegram to an existing local program or agent. It does not provide the model or the coding agent itself.
+- **Library** means reusable code embedded in an application; it is not an end-user product.
+- **Prototype / early project** means the repository documents a working design and has source, but has limited adoption, a recent start, incomplete release signals, or a narrow verified surface. It is not a security review.
+- Capabilities in the tables are **project claims corroborated in documentation/source**, not independent production verification. “Not run” means this research did not install, configure, or execute the project.
+
+Self-hosted bridge software is generally free under its repository license, but it still incurs hosting, operating-system, model subscription/API, speech-to-text, and maintenance costs. Telegram Bot API use itself has no normal per-message fee. Never use a project with real account credentials until its exact commit, permissions, update path, dependencies and data handling have been reviewed.
+
+## Agent control: coding from a phone
+
+All these projects use a Telegram bot as the control surface and start or connect to an agent on a computer/server. They do not turn Codex or Claude Code into a Telegram-native client, and Telegram does not provide the repository access. Local OS permissions, agent sandbox, provider credentials and repository checkout define that access.
+
+| Project | Type and agents | DM / group and operating model | Controls and material caveats | Assessment at check date |
+|---|---|---|---|---|
+| [Untether](https://github.com/littlebearapps/untether) | Self-hosted CLI application / bridge. Documents Claude Code, Codex, OpenCode, Pi and other engines. Python project with its own runtime, configuration, sessions, queues, file transfer, voice and scheduling features. | Bot polling connects to a local or server host. Supports private chat and group/forum topics. Per-sender sessions are separate; group use needs BotFather privacy settings appropriate to message routing and Manage Topics permission if the bot creates topics. | `allowed_user_ids` is required in current docs; callback approvals also check allowlisted IDs. Optional `approval_originator_only` narrows who may approve. Group members outside the allowlist are ignored. The agent CLI still runs with the host user's OS access; file-transfer deny globs do not sandbox the agent. Protect the token/config and session/provider credentials. | Broadest documented feature set among the examined bridges; the project's own security guide is unusually explicit. Good candidate for a personal or tightly controlled pilot after source review, with a dedicated least-privileged OS user and narrow workspace. Not independently audited or run here. |
+| [Agent2Telegram](https://github.com/petrludwig-collab/Agent2Telegram) | Self-hosted Python bridge, standard-library core. Documents Claude Code, Codex and Antigravity CLI. It attaches to or creates terminal sessions; it does not host a model. | Long polling, so it can run behind NAT without a public webhook. Its documentation describes owner DM operation and optional group handling with explicit mentions/replies. It hands text and media/files to the local agent. | Telegram user-ID allowlist; prompts are passed as an argument vector rather than through a shell. The setup wizard's fresh-session path is documented to start agents with permission/sandbox bypass flags. The README says users can instead start an agent normally and attach, preserving interactive approval. Config file is documented with mode `0600`; token can be environment-backed. | Convenient, low-dependency bridge, but the unattended wizard defaults are a significant safety trade-off. A safe pilot must attach to an already sandboxed interactive session and avoid the bypass launch option. Not run here. |
+| [C3](https://github.com/andrometiq/c3) | Self-hosted Go broker plus MCP adapters for Claude Code, Codex, Claude Desktop, Grok, Antigravity, Cursor and other CLIs. It multiplexes existing sessions rather than providing a model. | One bot, a forum topic per project/session, durable local queue, local host owns the CLI and credentials. Telegram is the shipped transport; an optional web surface is described as preview. Linux is primary; macOS binaries exist; Windows is beta. | DM-paired operator alone can approve documented Claude permission cards, **but any member of the paired Telegram group can send agent input**. The project explicitly says to treat that group like shell access. Some Claude Code live routing requires a development-channel preview flag. The Codex path does not offer the same permission relay. Token and queue are local; group message content is not an authorization boundary. | Technically ambitious and active, but inappropriate for a mixed-trust group. For an individual pilot, review the adapter and preview-channel dependency, keep the bot in a private owner-only group, and maintain the normal agent sandbox. Low adoption at check date; not run here. |
+| [TeleCode](https://github.com/ErnisBadmae/TeleCode) | Early TypeScript application/bridge for Codex and Claude Code with provider switching, multiple sessions and Docker option. The README says it has no npm release pipeline yet. | Telegram user IDs are checked in middleware. Current docs describe private control; no group workflow was found, so treat it as DM-only until verified. Uploaded files are staged to a workspace. | Default Codex profile is `workspace-write`; full host access and Claude permission bypass require opt-in flags and in-chat confirmation. Provider login changes are gated. Docker mounts local auth state and a workspace, so those mounted paths remain sensitive. | Good example of explicit safe/unsafe launch profiles in source, but very new and unreleased through npm. Study code/tests; do not mistake source tests for live agent/Telegram verification. Not run here. |
+| [CCBot](https://github.com/six-ddc/ccbot) | Self-hosted Python bridge for Claude Code specifically. Maps Telegram forum topics to `tmux` windows/sessions and monitors terminal/transcript output. | Group topics are the main documented workflow; DM is used for account/user setup. Requires local `tmux` and Claude Code. | Requires `ALLOWED_USERS`. Its own guide suggests `--dangerously-skip-permissions` for a headless VPS with no interactive terminal; that is a consequential mode. Telegram can transmit commands to a live terminal and displays session output. | Mature feature example with a larger community and tests in the repository, but its last repository push predates this check by several months. Do not run permission bypass on a host with broad credentials. Not run here. |
+| [Codex on Telegram](https://github.com/leoshenzh/codex-on-telegram) | Self-hosted bridge for local Claude Code and Codex sessions; README describes a small macOS daemon. | Private Telegram control of locally bound sessions; permission prompts, session resume and text/media are described. Verify group behavior from source before assuming support. | Runs beside local projects and agent login state; its operating-system scope is macOS per project README. Assess allowlist, sandbox, confirmation, stored state and restart behavior at the pinned commit. | Useful implementation reference, but narrower platform coverage and no independent verification here. Not run. |
+
+### Safe phone-control pilot recipe
+
+1. Use a dedicated Telegram bot and one private chat with the owner; configure an explicit numeric user allowlist.
+2. Run the bridge as a separate OS user with access only to a disposable clone or selected non-production repository. Keep production credentials, customer exports and personal Telegram session files out of that account.
+3. Keep the agent's normal sandbox and approval mode enabled. Test read-only tasks first, then permit a small, reversible edit in a throwaway branch. Never start with permission-bypass flags.
+4. Keep logs and project output out of shared groups. If group operation is later required, make every member individually trusted and allowed to direct an agent; a bot mention is routing, not a safety boundary.
+5. Use a narrow action contract: inspect status, run a selected check, prepare a patch. Keep deploy, merge, secrets, migrations, external messages and production access outside the Telegram bridge.
+
+This recipe is a proposed control design. Telegram's bot allowlist and a project's UI approvals do not replace operating-system sandboxing, code review or agent-side confirmation.
+
+## Telegram history and MCP data connectors
+
+| Project | Type and documented access | Read-only claim and actual boundary | Assessment |
+|---|---|---|---|
+| [telegram-mcp-readonly](https://github.com/mshykhov/telegram-mcp-readonly) | Self-hosted MCP application over a Telethon user session. Documents account-wide chat search, history, forum topics and media download through stdio or local shared HTTP. Setup requests Telegram API credentials and authorizes a user account with QR login. | At the inspected source, setup writes `TELEGRAM_EXPOSED_TOOLS=strict-read-only`. Runtime explicitly prunes tools to a named read-only allowlist independent of MCP's descriptive `readOnlyHint`; downloaded files are confined to a configured directory. However, the source contains mutating tools and also has broader modes. Strict mode limits the MCP tool surface; it does **not** make the underlying Telegram user session read-only or protect it from a modified/compromised server. `read-only` annotation mode is less strict. | Strongest concrete MCP reader found for a locally authorized account, with explicit source-level tool pruning. It is very new; treat as experimental and inspect exact source/config before use. Account-wide history access creates a high privacy and Telegram-policy burden. Not installed or run. |
+| [tdl-mcp](https://github.com/rixile9999/tdl-mcp) | Early JavaScript MCP wrapper around local `tdl` tooling; project describes listing chats, reading messages and downloading media. | Read-only is a feature of its exposed tools, not a Telegram-side account scope. Requires a user session and external CLI. | Very low adoption at check date; treat as a code sample until a source review, issue/activity check and isolated test establish reliability. Not run. |
+| [tdlib-mcp](https://github.com/xhns/tdlib-mcp) | Early Rust MCP server around a long-lived TDLib user client. | Its source/docs describe both read and write methods; verify the exact `--readonly` mode and tool registration before use. TDLib's signed-in session itself is a full client session. | Recent prototype, not evidence of a supported secure connector. Not run. |
+| [telegram-archive-mcp](https://github.com/GeiserX/telegram-archive-mcp) | Open-source MCP search over an imported/exported archive, rather than a live user session according to project description. | Archive import does not confer rights to re-index or use messages with an AI system. It also freezes a copy, so deletion and retention must be addressed. | Consider only for content the organization is entitled and permitted to process; check import format, source citations, deletion and license. Not run. |
+| [TDLib](https://github.com/tdlib/td) | Official open-source Telegram client library with a Java/JNI interface; intended for building a full custom Telegram client. | Not a Bot API wrapper and not a platform-enforced read-only connector. A local service can expose only read methods, but its account session and local database remain sensitive and can invoke other authorized client operations. | Use only when a real user-account client is required. Protect the encryption key and session DB; scope the app's own interface and do not infer that available history may be sent to AI. |
+
+### Data connector policy and technical limit
+
+Telegram's [Content Licensing Terms](https://telegram.org/tos/content-licensing) prohibit scraping, indexing, harvesting, aggregation or AI/ML use of platform data, including development, enhancement, benchmarking and deployment. The stated exception requires every relevant user to give explicit, informed, affirmative and continuing consent, scoped to the specific content and chat/context; consent in one context does not grant a broader license. [Bot Developer Terms](https://telegram.org/tos/bot-developers) separately prohibit collection beyond service necessity and collection intended to create large datasets, models or AI products, while allowing directly and voluntarily submitted bot content when its purpose is clearly disclosed and each user gives individual, explicit, active and revocable consent. For Business data, developers must not disclose content/files to third-party APIs without the user's authorization.
+
+The narrow direct-to-bot path is not blanket permission to summarize groups, index chat history, train a model, or send Business conversations to Claude/OpenAI. For group content, identify every affected participant and obtain consent scoped to that chat/context before any proposed AI use; do not build the capability until policy and legal review confirms the specific processing. When legal applicability is uncertain, omit Telegram-origin content and use a separate user-submitted prompt or approved knowledge base.
+
+Technical scope differs by mechanism:
+
+- Bot API exposes incoming updates available to that bot; it is not an arbitrary historical-search API. Group privacy mode limits normal bots to addressed messages/commands; an admin or privacy-disabled bot can receive more current group messages, still not a general old-history endpoint.
+- Telegram Business recipients select **private chats** (existing/new, contacts/non-contacts or explicit users with exclusions). Rights separately control reads, replies and account actions. A connected bot receives business-message updates for selected chats; it does not gain all groups or an unrestricted account archive. The latest Business rights define replies for private chats with an incoming message in the last 24 hours.
+- TDLib/MTProto runs a Telegram client authorized as a user and can query account-visible chats/history. This is broader technical access, not stronger consent or licensing permission.
+- MCP declares a tool interface. Server code, credentials, config and client approvals determine the actual scope. “Read-only” annotations or UI labels are not an identity or platform permission.
+
+## Customer support implementation comparison
+
+| Path | Customer experience and handoff | Business / data scope | Good fit |
+|---|---|---|---|
+| Ordinary Bot API + application backend | Customer starts the bot DM; buttons gather a category/reference; service creates ticket and routes to a human inbox. Agent reply is sent by the bot. Human handoff is an application/helpdesk state transition, not an automatic Bot API feature. | Bot sees messages sent to it and permitted current group updates. The bot is the sender. No company user account or unrelated history. | FAQ, intake, status lookup after app-side authorization, low-volume team support. |
+| Telegram Business connected bot | Customer contacts the company's Telegram account; the business owner explicitly selects recipient chats and rights. A helpdesk or service receives Business updates and can reply with the business connection, which presents as the company account. | Selected private chats only; read/reply rights are separate. Recent-inbound 24-hour reply restriction is encoded by the Business `reply` right. Business terms restrict reuse and third-party disclosure. No group access from recipient selection. | Company already supports customers from its Business profile and wants automation/CRM under the account. Confirm vendor support for Business updates and operator workflow. |
+| Chatwoot | Full helpdesk application with shared inbox, assignment, labels, notes, automations and human replies. The product documents ordinary Telegram bot channel and Business-bot support from v4.3.0; it recommends a dedicated Business bot/inbox and lists the 24-hour reply window. | Ordinary connector attaches a bot token to an inbox. Business mode should use `business_connection_id` and correct business update handling. Cloud/self-host deployment has its own data retention and residency. | Shared support queue and agent handoff when the team accepts a bot identity or verified Business mode. Check Chatwoot version, plan and data-processing terms. |
+
+These products prove a product path, not compliance or perfect delivery. Ask the vendor to demonstrate, in a disposable business account, incoming/update types, reply identity, file retention, operator attribution, assignment and what happens when a human takes over. Do not connect an existing production Business inbox during evaluation.
+
+## Practical patterns to adapt
+
+### 1. Support intake with human handoff
+
+`customer DM → Bot API bot → ticket service/helpdesk → queue/assignment → operator response as bot`
+
+The customer sees a short menu, a ticket number and later an answer from the bot. The helpdesk shows the incoming conversation, customer-supplied files and ticket history. The bot receives only the dialog with itself. A `/human` command or explicit “contact support” button changes the ticket state and routes to an operator. AI is optional; use deterministic categories first. If a model drafts a response, send only the specific customer-submitted content and approved knowledge after disclosed, revocable consent; the draft stays unsent until a manager approves it.
+
+### 2. Shared group decision
+
+`group topic → Bot API poll or explicit button → backend stores choices → result posted to same topic`
+
+For a meeting-time poll, Telegram's native poll is simplest and no AI is needed. For a shared order or availability matrix, use a Mini App direct link and backend state keyed by a validated user plus chat context. A Mini App gets `chat_type`/`chat_instance` in the direct-link mode; it cannot read chat messages or post as the user. Group members collaborate through the web app, and a user action explicitly posts a result into the chat if desired.
+
+### 3. Manager phone dashboard
+
+`authorized staff → Mini App direct link → server validates initData → backend checks company/role → ticket list/action → audit event`
+
+Use Telegram only as a launch surface. The application backend remains the authorization authority; a Telegram ID from `initData` is not a CVNoor/CRM role. This suits a custom list/approval workflow when the existing mobile web UI is inadequate. For simple notifications or a fixed “acknowledge” action, Bot API callbacks and a backend check are less work.
+
+### 4. Remote coding session
+
+`private allowlisted Telegram chat → self-hosted bridge → sandboxed local Codex/Claude CLI → selected repo clone`
+
+Start with status, review and tests in an isolated checkout. Keep the agent's approvals enabled. Do not allow a group to feed tasks unless the full group is trusted with that repo and host. Do not expose logs containing secrets or customer data to Telegram. See the project matrix above; no project in this catalog was installed or run.
+
+### 5. AI over supplied content, not a chat archive
+
+`user sends prompt/file directly to the bot → clear purpose/consent → file type/size validation → selected text to model API → answer or human draft`
+
+Use a direct bot conversation to answer questions over a curated, organization-approved knowledge base. If analyzing a file the user submits, state which model receives its extracted contents, limit retention, and make deletion/opt-out available. Avoid building a TDLib/MCP chat index unless the narrow all-relevant-user consent conditions and legal review have been met for the exact content and context.
+
+## Java and Spring Boot application boundary
+
+For ordinary event alerts and commands, a Spring Boot service can receive a Bot API webhook, authenticate Telegram's webhook secret header, validate the event, and call a small provider adapter. Java Bot API clients such as [TelegramBots](https://github.com/rubenlagus/TelegramBots) or [Pengrad Java Telegram Bot API](https://github.com/pengrad/java-telegram-bot-api) are libraries, not helpdesks or agents; direct HTTPS with Java `HttpClient` is enough for an outbound `sendMessage` sender. Use a queue/outbox only if durable retry matters and define idempotency, rate limits and deletion.
+
+For an existing Java backend, preferred boundaries are:
+
+- outbound event notification: domain event → recipient/consent policy → outbox or bounded queue → Bot API adapter → delivery result;
+- inbound bot action: Telegram update → webhook secret verification → allowlisted command/action → current domain authorization → audit record;
+- Mini App: frontend launch data → server-side HMAC check and freshness bound → application authentication/authorization → business action;
+- Business: use a Business-capable bot/library and carry `business_connection_id`; standard bot send calls do not automatically speak as a Business account;
+- TDLib: isolate the JNI client/session from the normal stateless API unless the product is genuinely a user-account Telegram client.
+
+The existing [Java/Spring sample](../examples/java-spring/README.md) has no real token and defaults to a local dry run. Its run status is described in the sample README; this research did not execute it during this task.
+
+## Source set and date
+
+Primary Telegram references checked 2026-11-14: [Bot FAQ](https://core.telegram.org/bots/faq), [Business recipients](https://core.telegram.org/constructor/businessBotRecipients), [Business rights](https://core.telegram.org/constructor/businessBotRights), [connected Business bots](https://core.telegram.org/api/bots/connected-business-bots), [Mini Apps](https://core.telegram.org/bots/webapps), [TDLib](https://core.telegram.org/tdlib/), [Bot Developer Terms](https://telegram.org/tos/bot-developers), [Content Licensing Terms](https://telegram.org/tos/content-licensing), [Telegram API Terms](https://core.telegram.org/api/terms), [Telegram Business Terms](https://telegram.org/tos/business).
+
+Project primary sources checked 2026-11-14: linked project READMEs and, for the security claims above, [Untether security guide](https://github.com/littlebearapps/untether/blob/master/docs/how-to/security.md), [Untether group guide](https://github.com/littlebearapps/untether/blob/master/docs/how-to/group-chat.md), [C3 README trust model](https://github.com/andrometiq/c3#before-you-install--the-trust-model), [TeleCode security notes](https://github.com/ErnisBadmae/TeleCode#security-notes), and [telegram-mcp-readonly runtime](https://github.com/mshykhov/telegram-mcp-readonly/blob/main/telegram_mcp/runtime.py). These were documentation/source inspections only; no credentials, services or user accounts were used.

@@ -18,6 +18,12 @@ For a third-party AI provider, confirm Telegram authorization, participant conse
 | Vendor connector | Only the connector's documented triggers/actions and configured account scope | General chat-history access because its page merely says Telegram integration |
 | MCP server | Specific callable tools exposed by server and enabled by user | Telegram-wide read access; MCP itself grants no identity or permission |
 
+### Source-reviewed MCP example: `telegram-mcp-readonly`
+
+The [project README](https://github.com/mshykhov/telegram-mcp-readonly) describes a Telethon user-session MCP server for account-visible chat search/history and attachment downloads. Its inspected `runtime.py` uses a strict named read-only tool allowlist by default; setup writes that mode, and the downloader is restricted to a configured directory. This is a real application-level restriction, not a Telegram account permission: the same source includes mutating tools and broader modes, and the underlying user session remains a full Telegram client session. A compromised or reconfigured service can exceed the read-only tool interface. Keep the session local, isolate its files/key, pin and review source, disable broader modes, and do not confuse access scope with permission to process content.
+
+The same distinction applies to other MCP/TDLib readers. The [implementation landscape](implementation-landscape.md) classifies current projects and points to inspected files. No MCP project was installed, authenticated or run here.
+
 ## Claude, Codex and this environment
 
 Neither Claude nor Codex should be assumed to have built-in Telegram access. An MCP server is a protocol endpoint: it can expose selected Telegram actions only if separately installed/configured, authenticated, and granted those scopes. Claude Code documents local stdio and remote HTTP/SSE MCP servers. OpenAI Responses API documents remote MCP servers and tool/approval controls. Codex CLI/SDK can be orchestrated for bounded or programmatic coding tasks, but that does not create a Telegram connector. For a Telegram-to-model workflow, a separate service normally receives the update, applies consent and policy checks, selects bounded content, invokes a model API/agent, and decides whether to return a draft or send a reply.

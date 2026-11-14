@@ -16,6 +16,7 @@
 - [Claude, Codex and Telegram](ai-codex-claude.md) — model interface vs Telegram data source, MCP and current environment snapshot.
 - [Technical integrations](technical-integrations.md) — GitHub, Jira, CI/CD, Grafana, Java/Spring.
 - [Product and connector catalog](product-catalog.md) — concrete tools, verified functions, pricing snapshots and caveats.
+- [Implementation landscape](implementation-landscape.md) — source-reviewed coding-agent bridges, MCP/TDLib history readers, support product paths, practical patterns and security boundaries.
 - [Scenario catalog](scenario-catalog.md) — reusable end-to-end patterns and complexity.
 - [Technical notes](technical-notes.md) — Bot API, Telegram Business, Mini Apps, TDLib and Java.
 - [Runnable Java/Spring example](../examples/java-spring/README.md) — dry-run webhook, Mini App signature validation, optional consent-gated Claude API call.
