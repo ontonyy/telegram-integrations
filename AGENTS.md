@@ -6,4 +6,4 @@
 - Keep tokens, account sessions, phone numbers, and private customer data out of this repository.
 - Label project-specific ideas as proposed until verified against the target project's current code, contracts, policy and owner decisions.
 
-- Write repository notes, research, task seeds, and agent-facing documents in English. Communicate summaries and explanations to the user in Russian unless the user requests another language.
+- Keep canonical repository notes, research, task seeds, and agent-facing documents in English. Maintain Russian reader copies under `ru/` when the user asks for them, and update the English source and Russian copy together. Communicate summaries and explanations to the user in Russian unless the user requests another language.

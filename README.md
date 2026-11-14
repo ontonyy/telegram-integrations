@@ -2,6 +2,8 @@
 
 A practical starting point for exploring Telegram integrations in Java projects: automation, web experiences, custom clients, and carefully scoped AI workflows.
 
+Русские версии материалов собраны в [каталоге для чтения](ru/README.md).
+
 This repository is a guide and example backlog. It contains no Telegram tokens, API credentials, or account sessions.
 
 ## Choose an integration path
