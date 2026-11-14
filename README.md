@@ -44,6 +44,10 @@ Design AI features to avoid ingesting Telegram-origin content by default. Before
 
 The examples are tracked in [tasks/1.md](tasks/1.md). They are not implemented yet.
 
+## Project-specific opportunities
+
+The [CVNoor project notes](projects/README.md) map Telegram ideas to candidate, employer, support, operations and backend workflows, with local task seeds for later ticket creation. These proposals are not approved product behavior or Jira tickets.
+
 ## Telegram ecosystem research
 
 The dated research library covers product choices, scenario designs, access boundaries, pricing snapshots, and Java implementation notes. Start at [02-research/README.md](02-research/README.md). Findings are checked **2026-11-14**; prices and platform rules can change.
