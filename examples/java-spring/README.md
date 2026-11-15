@@ -5,7 +5,7 @@
 This small Java 25 / Spring Boot app contains four patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
-2. Telegram Mini App `initData` verification on the Java server.
+2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
 3. A synthetic group scheduling vote using inline buttons, server-side voter allowlisting and callback de-duplication.
 4. Optional Claude Messages API call for a user-submitted `/ask` prompt after `/consent` in a private bot chat.
 
@@ -70,7 +70,9 @@ curl -i -X POST http://localhost:8080/telegram/webhook \
 
 The `demo` profile supplies a public, non-secret local placeholder for the webhook header. The server logs only a dry-run marker without the message or destination, and returns HTTP 200. Try `/help`, `/status`, `/consent`, and `/ask Please summarize this sample issue`. Send `/start` before `/consent`. Consent exists only in memory and resets on restart. The `/ask` input is not sent anywhere unless an Anthropic key is separately configured. Without a configured webhook secret (or the explicit demo profile), the webhook returns HTTP 503.
 
-Open `http://localhost:8080/` to see a Mini App shell. A normal browser does not provide Telegram-signed `initData`; the session endpoint rejects it unless a real, fresh launch payload and `TELEGRAM_BOT_TOKEN` are supplied. No credentials are provided here. The UI sends raw `initData` to the backend, never treats `initDataUnsafe` as proof of identity, and displays only a minimal identity claim.
+Open `http://localhost:8080/` to inspect the Mini App form. A normal browser does not provide Telegram-signed `initData`; submit/status endpoints reject it unless a fresh launch payload and `TELEGRAM_BOT_TOKEN` are supplied. No credentials are provided here, so authenticated submission is not available in this local demo by default. The form sends raw `initData` in POST bodies, never treats `initDataUnsafe` or a browser-supplied Telegram ID as proof of identity, and displays a synthetic request status. Use HTTPS when deploying it.
+
+The backend exposes `POST /api/miniapp/requests` to validate launch data and create a request, then `POST /api/miniapp/requests/status` to retrieve it. The server derives the owner ID from the signed `user` field; the application policy allows a verified user to create their own request and lets only that owner read it. A different verified user receives 404. The store holds at most 1,000 records in process memory, is lost on restart and is not shared between instances. Replace it with durable storage and re-check authorization at every record operation before deployment. The sample does not post results into Telegram, so it needs no chat-send rights. If launched from a group, any `chat_instance` is context only: this example does not use it to authorize access or expose group messages. Host a deployed Mini App only behind HTTPS and configure Telegram's launch URL in a controlled bot setup; no public URL or bot is configured here.
 
 ## Optional credentials (do not use for this local demo)
 
@@ -97,10 +99,10 @@ Telegram says to submit `Telegram.WebApp.initData` to the bot backend, compute t
 
 - Bot API only receives updates Telegram makes available to the bot. With group privacy mode enabled, this sample's `/ask` intentionally rejects group chats.
 - The vote example handles explicit commands and callback queries only; it does not provide group membership lookup or infer roles from Telegram group permissions.
-- A Mini App direct link can carry group context, but the app does not get group history or permission to send as the user.
+- A Mini App launch can include limited chat context, but this sample does not use it for authorization and receives no group history or permission to send as the user.
 - AI is disabled without a provider key and explicit per-chat consent. The consent store is in-memory and not production-ready.
 - This repository was not configured with a live bot/provider, and no live integration was verified.
-- `./gradlew test` verifies local behavior only; it does not prove Telegram delivery, provider connectivity, or account authorization.
+- `./gradlew test` verifies local behavior only; signed Mini App fixtures are synthetic. It does not prove Telegram launch, Telegram delivery, provider connectivity, or account authorization.
 
 ## Documentation
 

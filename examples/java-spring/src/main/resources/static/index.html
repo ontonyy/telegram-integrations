@@ -3,33 +3,79 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Telegram Mini App validation demo</title>
+  <title>Service request Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js?65"></script>
   <style>
-    body { font: 16px system-ui, sans-serif; margin: 2rem auto; max-width: 38rem; padding: 0 1rem; }
-    button { padding: .7rem 1rem; }
+    :root { color-scheme: light dark; }
+    body { font: 16px system-ui, sans-serif; margin: 1.5rem auto; max-width: 38rem; padding: 0 1rem; }
+    label { display: block; font-weight: 600; margin: 1rem 0 .35rem; }
+    input, textarea, button { box-sizing: border-box; font: inherit; padding: .7rem; width: 100%; }
+    textarea { min-height: 7rem; }
+    button { margin-top: 1rem; }
     pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .muted { opacity: .75; }
   </style>
 </head>
 <body>
-  <h1>Mini App launch validation</h1>
-  <p>This page sends raw Telegram initData to the Java backend for signature verification.</p>
-  <button id="verify">Verify this launch</button>
-  <pre id="result">Open this page inside Telegram using a configured Mini App launch to verify.</pre>
+  <h1>Service request</h1>
+  <p class="muted">Submit a synthetic request and check its status. The Java server verifies Telegram launch data and scopes each request to its owner.</p>
+  <form id="request-form">
+    <label for="title">Request title</label>
+    <input id="title" name="title" maxlength="120" required>
+    <label for="details">Details</label>
+    <textarea id="details" name="details" maxlength="2000"></textarea>
+    <button id="submit" type="submit">Submit request</button>
+  </form>
+  <button id="refresh" type="button">Check latest request status</button>
+  <pre id="result" role="status">Open this Mini App inside Telegram to submit a request.</pre>
   <script>
     const app = window.Telegram?.WebApp;
+    const result = document.querySelector('#result');
+    const form = document.querySelector('#request-form');
     app?.ready();
-    document.querySelector('#verify').addEventListener('click', async () => {
-      if (!app?.initData) {
-        document.querySelector('#result').textContent = 'No Telegram initData. A normal browser launch is not authenticated.';
-        return;
-      }
-      const response = await fetch('/api/miniapp/session', {
+
+    async function post(path, payload) {
+      const response = await fetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData: app.initData })
+        body: JSON.stringify({ ...payload, initData: app?.initData || '' })
       });
-      document.querySelector('#result').textContent = await response.text();
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+      return body;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const submit = document.querySelector('#submit');
+      submit.disabled = true;
+      try {
+        const request = await post('/api/miniapp/requests', {
+          title: document.querySelector('#title').value,
+          details: document.querySelector('#details').value
+        });
+        sessionStorage.setItem('latestRequestId', request.requestId);
+        result.textContent = `Request ${request.requestId} · ${request.status}`;
+        app?.HapticFeedback?.notificationOccurred('success');
+      } catch (error) {
+        result.textContent = error.message;
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    document.querySelector('#refresh').addEventListener('click', async () => {
+      const requestId = sessionStorage.getItem('latestRequestId');
+      if (!requestId) {
+        result.textContent = 'Submit a request first on this device.';
+        return;
+      }
+      try {
+        const request = await post('/api/miniapp/requests/status', { requestId });
+        result.textContent = `Request ${request.requestId} · ${request.status}\n${request.title}`;
+      } catch (error) {
+        result.textContent = error.message;
+      }
     });
   </script>
 </body>
