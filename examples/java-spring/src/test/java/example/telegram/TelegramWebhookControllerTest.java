@@ -22,6 +22,7 @@ class TelegramWebhookControllerTest {
     private RecordingTelegramBotClient telegram;
     private BusinessSupportService businessSupport;
     private AtomicInteger salesUpserts;
+    private InternalRequestService internalRequests;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -29,6 +30,11 @@ class TelegramWebhookControllerTest {
         telegram = new RecordingTelegramBotClient();
         salesUpserts = new AtomicInteger();
         businessSupport = new BusinessSupportService(telegram, "operator-1"::equals);
+        internalRequests = new InternalRequestService(userId -> switch (userId) {
+            case "77" -> java.util.Set.of(InternalRoleDirectory.Role.EMPLOYEE);
+            case "88" -> java.util.Set.of(InternalRoleDirectory.Role.MANAGER);
+            default -> java.util.Set.of();
+        }, telegram, "-901");
         BotReplyService replies = new BotReplyService(
                 telegram, new ClaudeClient("", "", mapper, request -> new TransportResponse(200, "{}")));
         TelegramWebhookController controller = new TelegramWebhookController(
@@ -39,7 +45,8 @@ class TelegramWebhookControllerTest {
                 new SalesLeadService(contact -> {
                     salesUpserts.incrementAndGet();
                     return "9001";
-                }, telegram, "-900", "Demo sales queue"));
+                }, telegram, "-900", "Demo sales queue"),
+                internalRequests);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -64,6 +71,27 @@ class TelegramWebhookControllerTest {
 
         assertEquals(1, salesUpserts.get());
         assertEquals(sendsAfterSubmit, telegram.sendCalls);
+    }
+
+    @Test
+    void internalRequestApprovalRequiresManagerConfirmationAndIgnoresRepeatedCallbackUpdate() throws Exception {
+        send(internalUpdate(600, 77, "/internal-help"), SECRET).andExpect(status().isOk());
+        send(internalUpdate(601, 77, "/request IT|Synthetic laptop request"), SECRET)
+                .andExpect(status().isOk());
+        String reference = telegram.votePrompt.text().split("Internal request ")[1].split("\\n")[0];
+        String chooseApprove = telegram.votePrompt.keyboard().getFirst().getFirst().callbackData();
+
+        send(internalCallbackUpdate(602, 1, 88, chooseApprove), SECRET).andExpect(status().isOk());
+        String confirm = telegram.votePrompt.keyboard().getFirst().getFirst().callbackData();
+        assertTrue(confirm.startsWith("employee_confirm|" + reference + "|approve|"));
+        send(internalCallbackUpdate(603, 2, 88, confirm), SECRET).andExpect(status().isOk());
+        assertTrue(telegram.lastVoteMessage.contains("APPROVED"));
+        int editsAfterApproval = telegram.voteEdits;
+        send(internalCallbackUpdate(603, 2, 88, confirm), SECRET).andExpect(status().isOk());
+        assertEquals(editsAfterApproval, telegram.voteEdits);
+
+        send(internalUpdate(604, 77, "/request-status " + reference), SECRET).andExpect(status().isOk());
+        assertTrue(telegram.lastSentMessage.contains("APPROVED"));
     }
 
     @Test
@@ -95,7 +123,8 @@ class TelegramWebhookControllerTest {
                 new GroupVoteService((chatId, userId) -> false),
                 new GrafanaAlertService(replies, "", ""), noFileIntake(),
                 new BusinessSupportService(telegram, "operator-1"::equals),
-                new SalesLeadService(contact -> "9001", telegram, "", "Demo sales queue"));
+                new SalesLeadService(contact -> "9001", telegram, "", "Demo sales queue"),
+                new InternalRequestService(userId -> java.util.Set.of(), telegram, "-901"));
         MockMvc unconfigured = MockMvcBuilders.standaloneSetup(controller).build();
 
         unconfigured.perform(post("/telegram/webhook")
@@ -231,6 +260,29 @@ class TelegramWebhookControllerTest {
                         "message", Map.of(
                                 "message_id", 501,
                                 "chat", Map.of("id", -12345, "type", "supergroup")),
+                        "data", data)));
+    }
+
+    private String internalUpdate(long updateId, long userId, String text) throws Exception {
+        return mapper.writeValueAsString(Map.of(
+                "update_id", updateId,
+                "message", Map.of(
+                        "message_id", updateId,
+                        "chat", Map.of("id", userId, "type", "private"),
+                        "from", Map.of("id", userId),
+                        "text", text)));
+    }
+
+    private String internalCallbackUpdate(long updateId, long callbackId, long userId, String data)
+            throws Exception {
+        return mapper.writeValueAsString(Map.of(
+                "update_id", updateId,
+                "callback_query", Map.of(
+                        "id", "internal-callback-" + callbackId,
+                        "from", Map.of("id", userId),
+                        "message", Map.of(
+                                "message_id", 900,
+                                "chat", Map.of("id", -901, "type", "supergroup")),
                         "data", data)));
     }
 

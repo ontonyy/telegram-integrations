@@ -23,6 +23,7 @@ public class TelegramWebhookController {
     private final FileIntakeService fileIntakeService;
     private final BusinessSupportService businessSupportService;
     private final SalesLeadService salesLeadService;
+    private final InternalRequestService internalRequestService;
 
     public TelegramWebhookController(
             @Value("${telegram.webhook-secret:}") String webhookSecret,
@@ -32,7 +33,8 @@ public class TelegramWebhookController {
             GrafanaAlertService grafanaAlertService,
             FileIntakeService fileIntakeService,
             BusinessSupportService businessSupportService,
-            SalesLeadService salesLeadService) {
+            SalesLeadService salesLeadService,
+            InternalRequestService internalRequestService) {
         this.webhookSecret = webhookSecret;
         this.replyService = replyService;
         this.updateRegistry = updateRegistry;
@@ -41,6 +43,7 @@ public class TelegramWebhookController {
         this.fileIntakeService = fileIntakeService;
         this.businessSupportService = businessSupportService;
         this.salesLeadService = salesLeadService;
+        this.internalRequestService = internalRequestService;
     }
 
     @PostMapping("/telegram/webhook")
@@ -143,6 +146,12 @@ public class TelegramWebhookController {
                         .ifPresent(body -> replyService.sendOrLog(chatId, body)));
                 return ResponseEntity.ok().build();
             }
+            if (Set.of("/internal-help", "/request", "/request-status").contains(command)) {
+                updateRegistry.processOnce(updateId, () -> internalRequestService
+                        .handleMessage(text, chatType, chatId, userId, updateId)
+                        .ifPresent(body -> replyService.sendOrLog(chatId, body)));
+                return ResponseEntity.ok().build();
+            }
             updateRegistry.processOnce(updateId, () -> {
                 Optional<String> reply = replyService.handle(text, chatType, chatId, userId);
                 reply.ifPresent(body -> replyService.sendOrLog(chatId, body));
@@ -169,6 +178,21 @@ public class TelegramWebhookController {
 
         try {
             long messageId = messageIdNode.asLong();
+            if (data.startsWith("employee_action|") || data.startsWith("employee_confirm|")
+                    || data.startsWith("employee_cancel|")) {
+                boolean processed = updateRegistry.processOnce(updateId, () -> {
+                    InternalRequestService.CallbackResult result =
+                            internalRequestService.handleCallback(chatId, userId, data);
+                    replyService.answerCallback(callbackId, result.callbackText());
+                    if (result.changed()) {
+                        replyService.editVoteMessage(chatId, messageId, result.updatedMessage(), java.util.List.of());
+                    }
+                });
+                if (!processed) {
+                    replyService.answerCallback(callbackId, "This update was already processed.");
+                }
+                return ResponseEntity.ok().build();
+            }
             if (data.startsWith("grafana_ack|")) {
                 String actionToken = data.substring("grafana_ack|".length());
                 boolean processed = updateRegistry.processOnce(updateId, () -> {

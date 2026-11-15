@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This Java 25 / Spring Boot app contains nine patterns:
+This Java 25 / Spring Boot app contains ten patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -13,6 +13,7 @@ This Java 25 / Spring Boot app contains nine patterns:
 7. Optional Claude Messages API flow for a directly submitted private-chat question, with disclosure, feature consent, and a separate confirmation for each exact prompt.
 8. Mock-backed Telegram Business support intake: connection rights, new/edit/delete updates, a minimal synthetic ticket, an allowlisted operator takeover, and a reply path that checks connection status, `can_reply`, and the 24-hour window before including `business_connection_id`.
 9. Consent-gated one-to-one sales lead capture: user-entered fields are upserted into HubSpot by email, assigned to a configured HubSpot owner, and routed to a manager chat with only the CRM contact reference.
+10. A private internal request lifecycle with a server-configured employee/manager directory, request status, two-step approval callbacks, stale-action guards, and a minimal UTC audit trail.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
 
@@ -142,6 +143,26 @@ TELEGRAM_SEND_ENABLED=false \
 
 Tests use a fake CRM gateway, a mocked HTTP transport and synthetic webhook updates. No HubSpot account, Telegram account, customer data, or live CRM write/message was used. Consent, update de-duplication, and manager-notification de-duplication are in-memory and lost on restart. In production use durable consent/audit records, a persistent idempotency key and outbox, a data retention policy, an explicit contact-update policy, and independent authorization for the manager workflow. This is a contact capture pattern, not a complete CRM/helpdesk integration.
 
+## Private employee request and manager approval
+
+The bot cannot start a private chat. An employee must open the bot and send `/internal-help` first. `/request IT|short description` accepts one synthetic category and a bounded request description. The app sends the request reference, category, and submitted description to `TELEGRAM_INTERNAL_APPROVAL_CHAT_ID`, with buttons to review approve/reject. Selecting an action does not change status: the same manager must confirm it in a second callback within ten minutes. `/request-status <reference>` returns only the current status to its requester or a configured manager.
+
+`ConfiguredInternalRoleDirectory` maps server-configured Telegram IDs to employee and manager roles using `TELEGRAM_INTERNAL_EMPLOYEE_IDS` and `TELEGRAM_INTERNAL_MANAGER_IDS`. The application checks the role on every request, status lookup, action selection, and confirmation; Telegram group admin status or fields in an update never grant company roles. This configuration is only a demo allowlist. For production, bind Telegram accounts to independently authenticated employee identities (such as SSO) and use the company identity/authorization system as the source of truth.
+
+Request status, owner reference, pending confirmation token, and a minimal audit of submit/decision actor, action, UTC timestamp and outcome exist only in bounded process memory. The service does not retain the request description after sending it to the approval chat, copy chat history, or connect HR/ITSM. A same-process retry of the same update reuses the request reference; if Telegram accepted a notification but its response was lost, a retry may send a duplicate notification. Restart loses status and audit, and the callback update registry is process-local. Before production, use durable access-controlled request/audit storage, retention/deletion rules, a shared idempotency store and outbox, and an authenticated manager interface. No AI is needed for this workflow.
+
+Local configuration uses synthetic identifiers only; outbound messages remain disabled:
+
+```bash
+TELEGRAM_INTERNAL_EMPLOYEE_IDS='10001,10002' \
+TELEGRAM_INTERNAL_MANAGER_IDS='20001' \
+TELEGRAM_INTERNAL_APPROVAL_CHAT_ID='-1001234567890' \
+TELEGRAM_SEND_ENABLED=false \
+./gradlew bootRun
+```
+
+The tests use a fake identity directory and synthetic webhook/callback updates. They cover unknown employees, requester-only status, wrong manager/chat, explicit confirmation, approve/reject transitions, expiry, stale callbacks, retry-safe submission, and audit minimization. No internal group, employee account, or message was used. The rule that bots cannot start private chats and the callback limits were checked against [Telegram's bot introduction](https://core.telegram.org/bots) and [Bot API](https://core.telegram.org/bots/api#inlinekeyboardbutton) on 2026-11-15.
+
 ## Optional credentials (do not use for this local demo)
 
 All credentials are environment variables. The default `TELEGRAM_SEND_ENABLED=false` keeps sends disabled. Keep it false. Setting it true enables outbound Bot API calls when a real update is handled; this repository does not ask you to do so.
@@ -167,6 +188,7 @@ Telegram says to submit `Telegram.WebApp.initData` to the bot backend, compute t
 
 - Bot API only receives updates Telegram makes available to the bot. With group privacy mode enabled, this sample's `/ask` intentionally rejects group chats.
 - The vote example handles explicit commands and callback queries only; it does not provide group membership lookup or infer roles from Telegram group permissions.
+- The internal request example trusts only a server-configured demo role directory, not Telegram group roles; request and audit records are volatile, and manager approval does not replace SSO or ITSM.
 - Jira event notifications depend on an administrator registering an HTTPS webhook with a matching secret and correctly configured event scope; local tests do not verify the Jira tenant or delivery.
 - Grafana acknowledgements are application records only; they do not change Grafana alert state, and the sample does not call Grafana APIs.
 - File intake is private-chat only, requires user consent, and retains no file after processing; it is disabled unless explicitly configured.

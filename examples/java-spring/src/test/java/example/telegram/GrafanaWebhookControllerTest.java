@@ -53,7 +53,8 @@ class GrafanaWebhookControllerTest {
                     }
                 }, 1_024, java.nio.file.Path.of("build", "unused-file-intake-test")),
                 new BusinessSupportService(telegram, operatorId -> false),
-                new SalesLeadService(contact -> "9001", telegram, "", "Demo sales queue"));
+                new SalesLeadService(contact -> "9001", telegram, "", "Demo sales queue"),
+                new InternalRequestService(userId -> java.util.Set.of(), telegram, "-901"));
         grafanaMvc = MockMvcBuilders.standaloneSetup(grafanaController).build();
         telegramMvc = MockMvcBuilders.standaloneSetup(telegramController).build();
     }
