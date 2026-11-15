@@ -69,6 +69,11 @@ public class BotReplyService {
         telegram.sendMessageWithInlineKeyboardOrLog(chatId, text, keyboard);
     }
 
+    public void sendAlert(
+            String chatId, String text, List<List<TelegramBotClient.InlineButton>> keyboard) {
+        telegram.sendMessageWithInlineKeyboardOrLog(chatId, text, keyboard);
+    }
+
     public void editVoteMessage(
             String chatId, long messageId, String text, List<List<TelegramBotClient.InlineButton>> keyboard) {
         telegram.editMessageWithInlineKeyboardOrLog(chatId, messageId, text, keyboard);

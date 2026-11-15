@@ -28,7 +28,8 @@ class TelegramWebhookControllerTest {
                 telegram, new ClaudeClient("", "", mapper, request -> new TransportResponse(200, "{}")));
         TelegramWebhookController controller = new TelegramWebhookController(
                 SECRET, replies, new InMemoryTelegramUpdateRegistry(),
-                new GroupVoteService((chatId, userId) -> "10".equals(userId)));
+                new GroupVoteService((chatId, userId) -> "10".equals(userId)),
+                new GrafanaAlertService(replies, "", ""));
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -68,7 +69,8 @@ class TelegramWebhookControllerTest {
                 telegram, new ClaudeClient("", "", mapper, request -> new TransportResponse(200, "{}")));
         TelegramWebhookController controller = new TelegramWebhookController(
                 "", replies, new InMemoryTelegramUpdateRegistry(),
-                new GroupVoteService((chatId, userId) -> false));
+                new GroupVoteService((chatId, userId) -> false),
+                new GrafanaAlertService(replies, "", ""));
         MockMvc unconfigured = MockMvcBuilders.standaloneSetup(controller).build();
 
         unconfigured.perform(post("/telegram/webhook")

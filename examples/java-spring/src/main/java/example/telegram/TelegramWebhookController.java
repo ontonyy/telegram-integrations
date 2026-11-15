@@ -18,16 +18,19 @@ public class TelegramWebhookController {
     private final BotReplyService replyService;
     private final TelegramUpdateRegistry updateRegistry;
     private final GroupVoteService groupVoteService;
+    private final GrafanaAlertService grafanaAlertService;
 
     public TelegramWebhookController(
             @Value("${telegram.webhook-secret:}") String webhookSecret,
             BotReplyService replyService,
             TelegramUpdateRegistry updateRegistry,
-            GroupVoteService groupVoteService) {
+            GroupVoteService groupVoteService,
+            GrafanaAlertService grafanaAlertService) {
         this.webhookSecret = webhookSecret;
         this.replyService = replyService;
         this.updateRegistry = updateRegistry;
         this.groupVoteService = groupVoteService;
+        this.grafanaAlertService = grafanaAlertService;
     }
 
     @PostMapping("/telegram/webhook")
@@ -108,13 +111,29 @@ public class TelegramWebhookController {
         String chatType = message.path("chat").path("type").asText("");
         JsonNode messageIdNode = message.path("message_id");
         String data = callback.path("data").asText("");
-        if (callbackId.isBlank() || userId.isBlank() || chatId.isBlank() || !isGroup(chatType)
+        if (callbackId.isBlank() || userId.isBlank() || chatId.isBlank() || chatType.isBlank()
                 || !messageIdNode.canConvertToLong() || data.isBlank()) {
             return ResponseEntity.ok().build();
         }
 
         try {
             long messageId = messageIdNode.asLong();
+            if (data.startsWith("grafana_ack|")) {
+                String actionToken = data.substring("grafana_ack|".length());
+                boolean processed = updateRegistry.processOnce(updateId, () -> {
+                    GrafanaAlertService.Acknowledgement acknowledgement =
+                            grafanaAlertService.acknowledge(chatId, userId, actionToken);
+                    replyService.answerCallback(callbackId, acknowledgement.callbackText());
+                    if (acknowledgement.updatedMessage() != null) {
+                        replyService.editVoteMessage(chatId, messageId, acknowledgement.updatedMessage(),
+                                java.util.List.of());
+                    }
+                });
+                if (!processed) {
+                    replyService.answerCallback(callbackId, "This update was already processed.");
+                }
+                return ResponseEntity.ok().build();
+            }
             boolean processed = updateRegistry.processOnce(updateId, () -> {
                 GroupVoteService.VoteResult result = groupVoteService.cast(chatId, userId, data);
                 replyService.answerCallback(callbackId, result.callbackText());

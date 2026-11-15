@@ -2,13 +2,14 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This small Java 25 / Spring Boot app contains five patterns:
+This small Java 25 / Spring Boot app contains six patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
 3. A synthetic group scheduling vote using inline buttons, server-side voter allowlisting and callback de-duplication.
 4. A signed Jira Cloud webhook adapter that filters issue events and sends a minimal Telegram notification.
-5. Optional Claude Messages API call for a user-submitted `/ask` prompt after `/consent` in a private bot chat.
+5. A signed Grafana Alerting webhook with an allowlisted, application-only acknowledgement button.
+6. Optional Claude Messages API call for a user-submitted `/ask` prompt after `/consent` in a private bot chat.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live test fixture, chat history indexing, Business-chat ingestion, TDLib, file downloads, or any real send. See [remaining examples](../../tasks/1.md) for later TDLib/file exercises.
 
@@ -70,6 +71,20 @@ Environment variables for a controlled deployment are `JIRA_WEBHOOK_SECRET`, `JI
 
 Jira event names, issue/changelog fields, HMAC format, HTTPS requirement and retry identifier were checked against [Atlassian's Jira Cloud webhook documentation](https://developer.atlassian.com/cloud/jira/platform/webhooks/) on 2026-11-15. That documentation states that event and field filters can also be configured at registration; this sample repeats filters server-side as a second boundary. It currently accepts only `sha256`; the Jira page says webhook signature algorithms may change, so update the validator if Atlassian changes the method.
 
+## Grafana Alerting webhook and acknowledgement
+
+Grafana already provides a native Telegram contact point for send-only alert notifications. Use that when direct routing is enough. This Java adapter is for a team that needs custom filtering, a backend-owned record and an explicit acknowledgement action. Grafana's webhook contact point posts a JSON envelope with `status`, `alerts[]`, and alert fields such as `labels`, `startsAt`, `generatorURL` and `fingerprint`. The sample emits one concise message per alert (at most 10 per payload), using `alertname`, `severity`, selected `team`/`service`/`environment` labels, firing/resolved state and a validated source link. It omits annotations, other labels, values and the full payload.
+
+The `/grafana/webhook` endpoint requires a secret plus HMAC-SHA256 signature and timestamp. Configure Grafana's HMAC signature with header `X-Grafana-Alerting-Signature`, timestamp header `X-Grafana-Timestamp`, and the same `GRAFANA_WEBHOOK_SECRET`; the signature must match `HMAC-SHA256(secret, timestamp + ":" + rawBody)` and timestamps older/newer than five minutes are rejected. The five-minute window is the sample's policy. Requests are capped at 1 MB.
+
+The Telegram message includes an **Acknowledge** inline button. Add `callback_query` to the bot webhook's `allowed_updates`; set `GRAFANA_ACK_USER_IDS` to a comma-separated list of allowed Telegram user IDs. Empty means nobody is authorized. A successful action records the allowlisted Telegram ID and UTC time in bounded in-memory application state and edits the notification to show that acknowledgement. Repeated taps are idempotent. This does not acknowledge, resolve, or silence anything in Grafana and makes no Grafana API call. The action applies only to the configured Telegram chat. The bot needs to be able to send messages to that chat; the sample does not read chat history.
+
+The acknowledgement store is capped at 1,000 alert instances and clears on restart; use durable shared storage and an auditable retention policy before production. The adapter does not have a stable Grafana webhook delivery ID, so Grafana's configured repeat notifications may produce another alert message. Limit alert count and notification frequency in Grafana to fit the operational channel. Telegram sends remain disabled unless explicitly enabled in the process environment.
+
+Local verification uses synthetic firing/resolved payloads, generated signatures and a fake Telegram client. No Grafana instance, public contact point, Telegram account or real message was used. A live setup would require an HTTPS Java endpoint reachable from Grafana, a Grafana contact point with HMAC/timestamp configured, `GRAFANA_WEBHOOK_SECRET`, `GRAFANA_TELEGRAM_CHAT_ID`, `GRAFANA_ACK_USER_IDS`, `TELEGRAM_BOT_TOKEN`, and an explicit decision to set `TELEGRAM_SEND_ENABLED=true`.
+
+Payload shape, available webhook authentication, HMAC/timestamp calculation and the native Telegram contact point were checked against [Grafana's webhook contact point documentation](https://grafana.com/docs/grafana/latest/alerting/configure-notifications/manage-contact-points/integrations/webhook-notifier/), [Grafana's Telegram contact point documentation](https://grafana.com/docs/grafana/latest/alerting/configure-notifications/manage-contact-points/integrations/configure-telegram/) and [contact point overview](https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/contact-points/) on 2026-11-15.
+
 Dry-run webhook with synthetic test data:
 
 ```bash
@@ -111,6 +126,7 @@ Telegram says to submit `Telegram.WebApp.initData` to the bot backend, compute t
 - Bot API only receives updates Telegram makes available to the bot. With group privacy mode enabled, this sample's `/ask` intentionally rejects group chats.
 - The vote example handles explicit commands and callback queries only; it does not provide group membership lookup or infer roles from Telegram group permissions.
 - Jira event notifications depend on an administrator registering an HTTPS webhook with a matching secret and correctly configured event scope; local tests do not verify the Jira tenant or delivery.
+- Grafana acknowledgements are application records only; they do not change Grafana alert state, and the sample does not call Grafana APIs.
 - A Mini App launch can include limited chat context, but this sample does not use it for authorization and receives no group history or permission to send as the user.
 - AI is disabled without a provider key and explicit per-chat consent. The consent store is in-memory and not production-ready.
 - This repository was not configured with a live bot/provider, and no live integration was verified.
