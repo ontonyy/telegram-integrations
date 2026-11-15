@@ -4,6 +4,7 @@
 
 ## Навигация
 
+- [Учебный маршрут по интеграциям Telegram](learning/README.md) — последовательное изучение от выбора механизма до AI и TDLib; [английская версия](../learning/README.md)
 - [Карта возможностей и сравнение](02-research/capability-map.md)
 - [Группы, темы и совместные Mini Apps](02-research/groups-and-topics.md)
 - [Поддержка клиентов](02-research/support.md)

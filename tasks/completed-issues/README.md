@@ -2,6 +2,8 @@
 
 **Checked:** 2026-11-15. These notes explain what each closed issue delivered, how the example works, and where the pattern fits in a real project. They describe repository code and its local verification; they do not imply that a live Telegram, CRM, or vendor account was connected.
 
+For a learning sequence organized by concept (rather than issue number), start with the [Telegram integrations learning path](../../learning/README.md). The pages below are implementation references that complement its seven lessons.
+
 Russian versions are in [`ru/tasks/completed-issues`](../../ru/tasks/completed-issues/README.md).
 
 | Issue | Completed work | Guide |
