@@ -1,6 +1,6 @@
 # Telegram with Claude, Codex and other AI systems
 
-**Checked:** 2026-11-14.
+**Checked:** 2026-11-15.
 
 ## Two separate designs
 
@@ -20,13 +20,15 @@ This requires a real connector, authentication and declared scope. Bot API is no
 
 | Option | Confirmed capability | What it does not establish |
 |---|---|---|
+| Official Claude Code Telegram channel | Anthropic's official Telegram plugin pushes live bot updates into an open Claude Code session and lets the session reply through Telegram. It is a research preview, needs Bun, an active/persistent session, BotFather token and DM pairing/allowlist. | Not Telegram account access or a history/search connector; Bot API live updates only. Availability depends on preview rollout/authentication/organization settings. The session still has its configured local tools and permissions. |
 | Claude Messages API | An application can send text/image inputs to Claude from its backend | No Telegram connectivity, update handling, or participant consent by itself |
 | Claude Code MCP | Claude Code can use separately configured local stdio and remote HTTP/SSE MCP servers | No default Telegram MCP, nor broad scope unless that server explicitly exposes it |
-| Codex CLI / SDK / app-server | Bounded non-interactive CLI and programmatic coding-agent workflows are available | Not a hosted “Codex API” for Telegram; no default Telegram connector |
+| Codex CLI / SDK / app-server | OpenAI documents bounded `codex exec`, a programmatic SDK and app-server protocol for persistent threads, streamed events and approval requests | The official sources reviewed do not document a Telegram connector. A Java service would need to own Telegram identity/authorization and mediate app-server process/session lifecycle |
+| [Codex Remote in ChatGPT](https://openai.com/index/work-with-codex-from-anywhere/) | OpenAI documents remote coding sessions from the ChatGPT mobile app, including steering, review and approvals while Codex continues on a connected development machine | It is an official mobile interface, but not a Telegram integration; availability and host requirements follow OpenAI's rollout |
 | OpenAI Responses API remote MCP | Can call a configured remote MCP server with tool controls/approvals | Does not make Telegram data available until a suitable server is installed and authorized |
 | Own integration service | Can receive Bot API updates, apply rules, call an AI API and return drafts/replies | Needs custom implementation, privacy/terms review, monitoring and credentials |
 
-On **2026-11-14**, Codex CLI and Claude Code CLI were installed in this workspace. Their MCP listings showed no Telegram server. Connected app tools exposed no Telegram connector and Codex Document Control had no connected document session. This is a snapshot of this environment, not a statement about every plan or third-party product. Recheck before choosing a connector.
+The workspace tool snapshot recorded on **2026-11-14** found no Telegram server in the installed Codex/Claude MCP listings and no connected Telegram app connector. That historic snapshot does not establish current plugin availability; this research did not install or activate Anthropic's Telegram plugin. Recheck this environment and the relevant account/organization settings before use.
 
 ## File and source handling
 
@@ -44,9 +46,12 @@ Telegram Content Licensing Terms prohibit scraping/indexing/aggregation and AI/M
 - [Telegram Bot Developer Terms](https://telegram.org/tos/bot-developers)
 - [Telegram API Terms](https://core.telegram.org/api/terms)
 - [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp)
+- [Claude Code channels documentation](https://code.claude.com/docs/en/channels)
+- [Official Anthropic Telegram channel source](https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/telegram)
 - [Anthropic Messages API](https://platform.claude.com/docs/en/api/messages)
 - [OpenAI MCP tools and connectors](https://developers.openai.com/api/docs/guides/tools-connectors-mcp)
 - [Codex as a platform](https://developers.openai.com/blog/codex-as-a-platform)
+- [Codex app-server](https://developers.openai.com/codex/app-server/)
 - [Bot API FAQ](https://core.telegram.org/bots/faq)
 - [TDLib](https://core.telegram.org/tdlib/)
 

@@ -1,6 +1,6 @@
 # Telegram integration ecosystem research
 
-**Checked:** 2026-11-14. This is a working reference for product selection and future integration examples. Telegram capabilities, vendor plans, and prices change; re-check linked source pages before implementation or purchase.
+**Index updated:** 2026-11-15. This is a working reference for product selection and future integration examples. Telegram capabilities, vendor plans, and prices change; re-check linked source pages before implementation or purchase.
 
 ## Start here
 
@@ -13,10 +13,10 @@
 - [Internal processes](internal-processes.md) — employee requests, IT, approvals and knowledge.
 - [Marketing and communities](marketing.md) — channels, opt-in, broadcasts and limits.
 - [AI and Telegram data](ai-and-data.md) — consent boundaries and data access by integration type.
-- [Claude, Codex and Telegram](ai-codex-claude.md) — model interface vs Telegram data source, MCP and current environment snapshot.
+- [Claude, Codex and Telegram](ai-codex-claude.md) — model interface vs Telegram data source, Anthropic's official Telegram channel preview, Codex app-server and environment snapshot.
 - [Technical integrations](technical-integrations.md) — GitHub, Jira, CI/CD, Grafana, Java/Spring.
 - [Product and connector catalog](product-catalog.md) — concrete tools, verified functions, pricing snapshots and caveats.
-- [Implementation landscape](implementation-landscape.md) — source-reviewed coding-agent bridges, MCP/TDLib history readers, support product paths, practical patterns and security boundaries.
+- [Implementation landscape](implementation-landscape.md) — official Claude Code channel and source-reviewed coding-agent bridges, MCP/TDLib history readers, support product paths, practical patterns and security boundaries.
 - [Scenario catalog](scenario-catalog.md) — reusable end-to-end patterns and complexity.
 - [Technical notes](technical-notes.md) — Bot API, Telegram Business, Mini Apps, TDLib and Java.
 - [Runnable Java/Spring example](../examples/java-spring/README.md) — dry-run webhook, Mini App signature validation, optional consent-gated Claude API call.
