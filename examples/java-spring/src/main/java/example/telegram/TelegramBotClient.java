@@ -1,5 +1,6 @@
 package example.telegram;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -106,10 +107,45 @@ public class TelegramBotClient implements BusinessMessageSender {
                     .build();
             TransportResponse response = transport.send(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("Telegram Bot API returned HTTP " + response.statusCode());
+                throw new TelegramBotApiException(response.statusCode(), readRetryAfter(response.body()));
             }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Telegram send was interrupted", exception);
+        } catch (TelegramBotApiException exception) {
+            throw exception;
         } catch (Exception exception) {
             throw new IllegalStateException("Telegram send failed", exception);
+        }
+    }
+
+    public NotificationDeliveryResult sendForOutbox(String chatId, String text) {
+        if (!sendEnabled) {
+            throw new IllegalStateException("Telegram delivery is disabled; outbox worker must remain disabled");
+        }
+        if (token.isBlank()) {
+            return NotificationDeliveryResult.permanent();
+        }
+        try {
+            sendOrLog(chatId, text);
+            return NotificationDeliveryResult.sent();
+        } catch (TelegramBotApiException exception) {
+            if (exception.statusCode() == 429 || exception.statusCode() >= 500) {
+                return NotificationDeliveryResult.retryable(exception.retryAfter());
+            }
+            return NotificationDeliveryResult.permanent();
+        } catch (IllegalStateException ambiguousTransportFailure) {
+            return NotificationDeliveryResult.retryable(java.time.Duration.ZERO);
+        }
+    }
+
+    private java.time.Duration readRetryAfter(String responseBody) {
+        try {
+            JsonNode root = mapper.readTree(responseBody);
+            long seconds = root.path("parameters").path("retry_after").asLong(0);
+            return seconds > 0 ? java.time.Duration.ofSeconds(seconds) : java.time.Duration.ZERO;
+        } catch (Exception ignored) {
+            return java.time.Duration.ZERO;
         }
     }
 

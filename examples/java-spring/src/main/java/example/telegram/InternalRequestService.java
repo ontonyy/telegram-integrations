@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +30,7 @@ public class InternalRequestService {
     private final Map<Long, String> requestsBySubmissionUpdate = new LinkedHashMap<>();
     private final List<AuditEntry> audit = new ArrayList<>();
 
+    @Autowired
     public InternalRequestService(
             InternalRoleDirectory roles,
             TelegramBotClient telegram,

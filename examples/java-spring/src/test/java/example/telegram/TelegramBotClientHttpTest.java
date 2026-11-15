@@ -2,7 +2,6 @@ package example.telegram;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -58,6 +57,29 @@ class TelegramBotClientHttpTest {
         JsonNode sent = mapper.readTree(requestBody.get());
         assertEquals("12345", sent.path("chat_id").asText());
         assertEquals("synthetic build passed", sent.path("text").asText());
+    }
+
+    @Test
+    void classifiesFloodControlAndUsesTelegramRetryAfter() throws Exception {
+        startServer(exchange -> writeResponse(exchange, 429,
+                "{\"ok\":false,\"error_code\":429,\"parameters\":{\"retry_after\":17}}"));
+
+        NotificationDeliveryResult result = client("synthetic-token", Duration.ofSeconds(2))
+                .sendForOutbox("12345", "synthetic retry test");
+
+        assertEquals(NotificationDeliveryResult.Kind.RETRYABLE_FAILURE, result.kind());
+        assertEquals(Duration.ofSeconds(17), result.retryAfter());
+    }
+
+    @Test
+    void classifiesClientErrorsAsPermanentForOutbox() throws Exception {
+        startServer(exchange -> writeResponse(exchange, 400,
+                "{\"ok\":false,\"error_code\":400,\"description\":\"synthetic invalid chat\"}"));
+
+        NotificationDeliveryResult result = client("synthetic-token", Duration.ofSeconds(2))
+                .sendForOutbox("12345", "synthetic permanent test");
+
+        assertEquals(NotificationDeliveryResult.Kind.PERMANENT_FAILURE, result.kind());
     }
 
     @Test
@@ -135,9 +157,9 @@ class TelegramBotClientHttpTest {
 
         assertFalse(failure.toString().contains("synthetic-token"));
         assertFalse(failure.toString().contains("synthetic private response body"));
-        assertNotNull(failure.getCause());
-        assertTrue(failure.getCause().getMessage().contains("429"));
-        assertFalse(failure.getCause().getMessage().contains("synthetic private response body"));
+        assertTrue(failure instanceof TelegramBotApiException);
+        assertEquals(429, ((TelegramBotApiException) failure).statusCode());
+        assertFalse(failure.getMessage().contains("synthetic private response body"));
     }
 
     @Test

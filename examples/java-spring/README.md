@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This Java 25 / Spring Boot app contains ten patterns:
+This Java 25 / Spring Boot app contains eleven patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -14,8 +14,43 @@ This Java 25 / Spring Boot app contains ten patterns:
 8. Mock-backed Telegram Business support intake: connection rights, new/edit/delete updates, a minimal synthetic ticket, an allowlisted operator takeover, and a reply path that checks connection status, `can_reply`, and the 24-hour window before including `business_connection_id`.
 9. Consent-gated one-to-one sales lead capture: user-entered fields are upserted into HubSpot by email, assigned to a configured HubSpot owner, and routed to a manager chat with only the CRM contact reference.
 10. A private internal request lifecycle with a server-configured employee/manager directory, request status, two-step approval callbacks, stale-action guards, and a minimal UTC audit trail.
+11. A file-backed H2 notification outbox with stable event IDs, leased worker claims, bounded retries, Telegram `retry_after` handling, expiry, and terminal-row retention.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
+
+The outbox stores its minimum delivery payload (destination and message text) in a local H2 file under the operating system's temporary directory so pending messages survive restarts. Sending and the scheduled worker are both disabled by default. The database file is still sensitive local data; use synthetic content and remove the file when finished. The H2 sample is a learning adapter, not production database hardening.
+
+### Durable notification outbox
+
+Application code enqueues a notification with a stable event ID, the approved destination, a minimal message and an expiry time. Start the app in the dry-run profile with an explicit local H2 path:
+
+```bash
+TELEGRAM_SEND_ENABLED=false \
+TELEGRAM_OUTBOX_WORKER_ENABLED=false \
+TELEGRAM_OUTBOX_DB_URL='jdbc:h2:file:/tmp/telegram-integrations-outbox' \
+./gradlew bootRun --args='--spring.profiles.active=demo'
+```
+
+The application creates the schema on startup. Stop it before resetting the local database:
+
+```bash
+rm -f /tmp/telegram-integrations-outbox.mv.db /tmp/telegram-integrations-outbox.trace.db
+```
+
+The command below shows the enqueue call you would make from a Spring application service; this demo does not expose a public endpoint that accepts arbitrary destination IDs:
+
+```java
+notificationOutbox.enqueue(
+        "build:demo-project:run-123",
+        configuredChatId,
+        "Build completed: https://example.invalid/runs/123",
+        Instant.now(),
+        Instant.now().plus(Duration.ofHours(24)));
+```
+
+Inject `NotificationOutbox` into the application service that already owns the business transaction. Because this adapter uses `JdbcTemplate` and Spring's configured datasource, its insert can join that service's `@Transactional` transaction. In a real project, use the same transactional database as the business change and the database's native conflict-safe insert for event de-duplication.
+
+The primary key makes a repeated event ID a no-op. The worker claims a due row with a lease and records a success, bounded retry, permanent failure or expiry. To opt into real sending in a controlled deployment, configure both `TELEGRAM_SEND_ENABLED=true` and `TELEGRAM_OUTBOX_WORKER_ENABLED=true`, plus a bot token and an approved chat destination. This configuration can send real messages; do not enable it in a pull request or ordinary local run. Telegram's `retry_after` is honored for HTTP 429 responses. An ambiguous network timeout is retried and may duplicate a message if Telegram accepted the first request. See [J16](../../tasks/completed-issues/J16.md) for the design and [the learning lesson](../../learning/02-bot-service.md) for the outbox concept.
 
 ## Prerequisites
 

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 
@@ -24,6 +25,7 @@ public class BusinessSupportService {
     private final Map<String, MutableTicket> tickets = new LinkedHashMap<>();
     private final Map<String, String> ticketRefsByConversation = new LinkedHashMap<>();
 
+    @Autowired
     public BusinessSupportService(
             BusinessMessageSender sender, BusinessOperatorAuthorizer operatorAuthorizer) {
         this(sender, operatorAuthorizer, Clock.systemUTC());

@@ -35,7 +35,7 @@
 
 | Ref | Proposed ticket outcome | Done when | Dependencies / notes |
 |---|---|---|---|
-| CVN-TG-15 | Define delivery guarantees separately for internal alerts and user notifications | Document current in-memory best-effort sender and its drops; define any durable retry/ledger needed for user notices without changing the alert contract implicitly | Coordinate with backend outbox/provider contract; no credential or message-body logging |
+| CVN-TG-15 | Define delivery guarantees separately for internal alerts and user notifications | Document current in-memory best-effort sender and its drops; define any durable retry/ledger needed for user notices without changing the alert contract implicitly | Coordinate with backend outbox/provider contract; no credential or message-body logging. Generic learning implementation: [J16 H2 outbox](../../tasks/completed-issues/J16.md); it does not establish CVNoor delivery guarantees. |
 | CVN-TG-16 | Prepare non-production verification plans | First, an authorized synthetic operational alert with delivery evidence; separately, synthetic user opt-in/out, unlink, unauthorized actor, duplicate event, localization and failure checks | Must use no production data or unsolicited customer messages; record source tests, HTTP success and real receipt accurately |
 | CVN-TG-17 | Decide whether Mini App solves an evidenced mobile gap | User research identifies unmet flow; prototype is compared with responsive CVNoor web UX | Do not create Mini App solely because Telegram supports it |
 

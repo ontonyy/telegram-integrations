@@ -23,5 +23,6 @@ Russian versions are in [`ru/tasks/completed-issues`](../../ru/tasks/completed-i
 | J13 | Telegram-to-coding-agent bridge research | [J13](J13.md) |
 | J14 | Consent-based HubSpot lead capture | [J14](J14.md) |
 | J15 | Private employee request and approval | [J15](J15.md) |
+| J16 | Durable notification outbox, retry policy, and expiry | [J16](J16.md) |
 
 Start with [the Java/Spring README](../../examples/java-spring/README.md) for commands, configuration names, and the shared demo boundaries. J13 is a research decision, not a runnable bridge. J12 is isolated and is not part of the normal Spring startup.
