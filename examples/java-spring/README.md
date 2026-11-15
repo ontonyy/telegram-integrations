@@ -19,7 +19,7 @@ The examples share one service so the data boundaries are visible. They do not i
 ## Run locally
 
 ```bash
-./gradlew bootRun
+./gradlew bootRun --args='--spring.profiles.active=demo'
 ```
 
 Run the credential-free automated tests:
@@ -49,7 +49,7 @@ curl -i -X POST http://localhost:8080/telegram/webhook \
   -d '{"message":{"message_id":1,"chat":{"id":12345,"type":"private"},"from":{"id":12345},"text":"/start"}}'
 ```
 
-The server logs that a dry-run reply would be sent (without logging its content) and returns HTTP 200. Try `/help`, `/status`, `/consent`, and `/ask Please summarize this sample issue`. Send `/start` before `/consent`. Consent exists only in memory and resets on restart. The `/ask` input is not sent anywhere unless an Anthropic key is separately configured.
+The `demo` profile supplies a public, non-secret local placeholder for the webhook header. The server logs that a dry-run reply would be sent (without logging its content) and returns HTTP 200. Try `/help`, `/status`, `/consent`, and `/ask Please summarize this sample issue`. Send `/start` before `/consent`. Consent exists only in memory and resets on restart. The `/ask` input is not sent anywhere unless an Anthropic key is separately configured. Without a configured webhook secret (or the explicit demo profile), the webhook returns HTTP 503.
 
 Open `http://localhost:8080/` to see a Mini App shell. A normal browser does not provide Telegram-signed `initData`; the session endpoint rejects it unless a real, fresh launch payload and `TELEGRAM_BOT_TOKEN` are supplied. No credentials are provided here. The UI sends raw `initData` to the backend, never treats `initDataUnsafe` as proof of identity, and displays only a minimal identity claim.
 
@@ -68,7 +68,7 @@ ANTHROPIC_MODEL='<model name available to your account>' \
 ./gradlew bootRun
 ```
 
-Do not commit real values, `.env` files, Telegram launch payloads, user IDs, or logs containing message bodies. TDLib session files and the `telegram-data/` directory are ignored by Git. The repository credential scan checks common Bot API, Anthropic, OpenAI and Telegram API hash formats, but it is not a complete secret detector. For a public webhook, use HTTPS, configure Telegram's webhook secret, bound request size, add idempotency/rate limits and persistent consent records, and keep API keys in a secret manager.
+Do not commit real values, `.env` files, Telegram launch payloads, user IDs, or logs containing message bodies. TDLib session files and the `telegram-data/` directory are ignored by Git. The repository credential scan checks common Bot API, Anthropic, OpenAI and Telegram API hash formats, but it is not a complete secret detector. The sample's bounded in-memory update registry retains at most 10,000 IDs, deduplicates only within one process and loses entries on restart; it cannot guarantee exactly-once external delivery if a provider accepts a request but the response is lost. Production should provide durable shared idempotency and an outbox for external side effects. For a public webhook, use HTTPS, configure Telegram's webhook secret, bound request size, add rate limits and persistent consent records, and keep API keys in a secret manager.
 
 ## Mini App validation notes
 
