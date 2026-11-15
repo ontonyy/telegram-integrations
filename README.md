@@ -48,6 +48,8 @@ The dated ecosystem research is indexed in [02-research/README.md](02-research/R
 
 A Java 25 / Spring Boot sample is available in [examples/java-spring](examples/java-spring/README.md): Bot API webhook and Mini App validation, mock-backed Telegram Business support, consent-gated HubSpot contact capture, private employee requests with manager approvals, and optional Claude API flow with disclosure and per-question confirmation. The separate [optional TDLib Java example](examples/tdlib-java/README.md) demonstrates a fake-tested authorization-state flow and an opt-in native/JNI adapter for an account you control. No credentials are included; neither example connects an account by default. See [tasks/1.md](tasks/1.md) for scope and verification boundaries.
 
+For the completed Java issues, see the [English implementation guides](tasks/completed-issues/README.md) and [Russian reader copies](ru/tasks/completed-issues/README.md). Each note explains the delivered result, flow, real-project use, and live-service verification boundary.
+
 ## Project-specific opportunities
 
 The [CVNoor project notes](projects/README.md) map Telegram ideas to candidate, employer, support, operations and backend workflows, with local task seeds for later ticket creation. These proposals are not approved product behavior or Jira tickets.
