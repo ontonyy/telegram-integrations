@@ -2,9 +2,7 @@ package example.telegram;
 
 import tools.jackson.databind.ObjectMapper;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,15 +13,17 @@ public class TelegramBotClient {
     private final String token;
     private final boolean sendEnabled;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final HttpTransport transport;
 
     public TelegramBotClient(
             @Value("${telegram.bot-token:}") String token,
             @Value("${telegram.send-enabled:false}") boolean sendEnabled,
-            ObjectMapper mapper) {
+            ObjectMapper mapper,
+            HttpTransport transport) {
         this.token = token;
         this.sendEnabled = sendEnabled;
         this.mapper = mapper;
+        this.transport = transport;
     }
 
     public void sendOrLog(String chatId, String text) {
@@ -42,7 +42,7 @@ public class TelegramBotClient {
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
-            HttpResponse<Void> response = http.send(request, HttpResponse.BodyHandlers.discarding());
+            TransportResponse response = transport.send(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("Telegram Bot API returned HTTP " + response.statusCode());
             }

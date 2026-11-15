@@ -3,3 +3,9 @@ build/
 .env
 .env.*
 !.env.example
+*.session
+*.session-journal
+*.tdlib/
+telegram-data/
+telegram-updates/
+*.telegram-update.json

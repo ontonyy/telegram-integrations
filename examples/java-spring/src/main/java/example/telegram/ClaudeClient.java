@@ -3,9 +3,7 @@ package example.telegram;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -17,15 +15,17 @@ public class ClaudeClient {
     private final String apiKey;
     private final String model;
     private final ObjectMapper mapper;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private final HttpTransport transport;
 
     public ClaudeClient(
             @Value("${anthropic.api-key:}") String apiKey,
             @Value("${anthropic.model:}") String model,
-            ObjectMapper mapper) {
+            ObjectMapper mapper,
+            HttpTransport transport) {
         this.apiKey = apiKey;
         this.model = model;
         this.mapper = mapper;
+        this.transport = transport;
     }
 
     public String answer(String userQuestion) {
@@ -45,7 +45,7 @@ public class ClaudeClient {
                     .header("content-type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
-            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            TransportResponse response = transport.send(request);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 return "AI provider returned HTTP " + response.statusCode() + ". No automatic retry was made.";
             }

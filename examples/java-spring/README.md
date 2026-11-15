@@ -22,6 +22,22 @@ The examples share one service so the data boundaries are visible. They do not i
 ./gradlew bootRun
 ```
 
+Run the credential-free automated tests:
+
+```bash
+./gradlew test
+```
+
+The tests use synthetic input and an injected HTTP transport. They do not connect to Telegram or an AI provider. `JdkHttpTransport` is the production adapter; unit tests replace the transport with an in-memory stub.
+
+From the repository root, scan tracked and non-ignored files for common Telegram and AI-provider credential formats:
+
+```bash
+bash scripts/credential-scan.sh
+```
+
+This is a focused pattern scan, not a guarantee that every possible secret format is detected. Review any new credential type before adding it to the example. Keep raw update captures outside the repository; local files under `telegram-updates/` and files ending in `.telegram-update.json` are ignored.
+
 Dry-run webhook with synthetic test data:
 
 ```bash
@@ -50,7 +66,7 @@ ANTHROPIC_MODEL='<model name available to your account>' \
 ./gradlew bootRun
 ```
 
-Do not commit real values, `.env` files, Telegram launch payloads, user IDs, or logs containing message bodies. For a public webhook, use HTTPS, configure Telegram's webhook secret, bound request size, add idempotency/rate limits and persistent consent records, and keep API keys in a secret manager.
+Do not commit real values, `.env` files, Telegram launch payloads, user IDs, or logs containing message bodies. TDLib session files and the `telegram-data/` directory are ignored by Git. The repository credential scan checks common Bot API, Anthropic, OpenAI and Telegram API hash formats, but it is not a complete secret detector. For a public webhook, use HTTPS, configure Telegram's webhook secret, bound request size, add idempotency/rate limits and persistent consent records, and keep API keys in a secret manager.
 
 ## Mini App validation notes
 
@@ -62,6 +78,7 @@ Telegram says to submit `Telegram.WebApp.initData` to the bot backend, compute t
 - A Mini App direct link can carry group context, but the app does not get group history or permission to send as the user.
 - AI is disabled without a provider key and explicit per-chat consent. The consent store is in-memory and not production-ready.
 - This repository was not configured with a live bot/provider, and no live integration was verified.
+- `./gradlew test` verifies local behavior only; it does not prove Telegram delivery, provider connectivity, or account authorization.
 
 ## Documentation
 
