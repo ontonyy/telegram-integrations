@@ -19,18 +19,21 @@ public class TelegramWebhookController {
     private final TelegramUpdateRegistry updateRegistry;
     private final GroupVoteService groupVoteService;
     private final GrafanaAlertService grafanaAlertService;
+    private final FileIntakeService fileIntakeService;
 
     public TelegramWebhookController(
             @Value("${telegram.webhook-secret:}") String webhookSecret,
             BotReplyService replyService,
             TelegramUpdateRegistry updateRegistry,
             GroupVoteService groupVoteService,
-            GrafanaAlertService grafanaAlertService) {
+            GrafanaAlertService grafanaAlertService,
+            FileIntakeService fileIntakeService) {
         this.webhookSecret = webhookSecret;
         this.replyService = replyService;
         this.updateRegistry = updateRegistry;
         this.groupVoteService = groupVoteService;
         this.grafanaAlertService = grafanaAlertService;
+        this.fileIntakeService = fileIntakeService;
     }
 
     @PostMapping("/telegram/webhook")
@@ -66,12 +69,37 @@ public class TelegramWebhookController {
         String chatType = message.path("chat").path("type").asText("");
         String chatId = message.path("chat").path("id").asText("");
         String userId = message.path("from").path("id").asText("");
-        if (text.isBlank() || chatId.isBlank() || userId.isBlank()) {
+        if (chatId.isBlank() || userId.isBlank()) {
             return ResponseEntity.ok().build();
         }
 
         try {
             long updateId = updateIdNode.asLong();
+            JsonNode document = message.path("document");
+            if (document.isObject()) {
+                if (!"private".equals(chatType)) {
+                    return ResponseEntity.ok().build();
+                }
+                updateRegistry.processOnce(updateId, () -> {
+                    if (!replyService.hasFileConsent(userId)) {
+                        replyService.sendOrLog(chatId,
+                                "File intake is off until you read /file-help and send /file-consent in this private chat.");
+                        return;
+                    }
+                    JsonNode size = document.path("file_size");
+                    long fileSize = size.isIntegralNumber() && size.canConvertToLong() ? size.asLong() : -1;
+                    FileIntakeService.Result result = fileIntakeService.process(new FileIntakeService.DocumentMetadata(
+                            document.path("file_id").asText(""),
+                            document.path("file_name").asText(""),
+                            document.path("mime_type").asText(""),
+                            fileSize));
+                    replyService.sendOrLog(chatId, result.reply());
+                });
+                return ResponseEntity.ok().build();
+            }
+            if (text.isBlank()) {
+                return ResponseEntity.ok().build();
+            }
             String command = text.strip().split("\\s", 2)[0].split("@", 2)[0];
             if ("/vote".equals(command) && isGroup(chatType)) {
                 updateRegistry.processOnce(updateId, () -> {

@@ -40,7 +40,18 @@ class GrafanaWebhookControllerTest {
                 GRAFANA_SECRET, "-777", signatures, alerts, mapper);
         TelegramWebhookController telegramController = new TelegramWebhookController(
                 TELEGRAM_SECRET, replies, new InMemoryTelegramUpdateRegistry(),
-                new GroupVoteService((chatId, userId) -> false), alerts);
+                new GroupVoteService((chatId, userId) -> false), alerts,
+                new FileIntakeService(new TelegramFileGateway() {
+                    @Override
+                    public DownloadInfo getFile(String fileId) {
+                        throw new AssertionError("Unexpected test file download");
+                    }
+
+                    @Override
+                    public void download(String filePath, java.nio.file.Path destination, long maxBytes) {
+                        throw new AssertionError("Unexpected test file download");
+                    }
+                }, 1_024, java.nio.file.Path.of("build", "unused-file-intake-test")));
         grafanaMvc = MockMvcBuilders.standaloneSetup(grafanaController).build();
         telegramMvc = MockMvcBuilders.standaloneSetup(telegramController).build();
     }

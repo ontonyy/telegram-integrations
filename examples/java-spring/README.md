@@ -2,14 +2,15 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This small Java 25 / Spring Boot app contains six patterns:
+This small Java 25 / Spring Boot app contains seven patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
 3. A synthetic group scheduling vote using inline buttons, server-side voter allowlisting and callback de-duplication.
 4. A signed Jira Cloud webhook adapter that filters issue events and sends a minimal Telegram notification.
 5. A signed Grafana Alerting webhook with an allowlisted, application-only acknowledgement button.
-6. Optional Claude Messages API call for a user-submitted `/ask` prompt after `/consent` in a private bot chat.
+6. A consent-based Bot API text-file intake that downloads to a private temporary directory and deletes immediately.
+7. Optional Claude Messages API call for a user-submitted `/ask` prompt after `/consent` in a private bot chat.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live test fixture, chat history indexing, Business-chat ingestion, TDLib, file downloads, or any real send. See [remaining examples](../../tasks/1.md) for later TDLib/file exercises.
 
@@ -85,6 +86,16 @@ Local verification uses synthetic firing/resolved payloads, generated signatures
 
 Payload shape, available webhook authentication, HMAC/timestamp calculation and the native Telegram contact point were checked against [Grafana's webhook contact point documentation](https://grafana.com/docs/grafana/latest/alerting/configure-notifications/manage-contact-points/integrations/webhook-notifier/), [Grafana's Telegram contact point documentation](https://grafana.com/docs/grafana/latest/alerting/configure-notifications/manage-contact-points/integrations/configure-telegram/) and [contact point overview](https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/contact-points/) on 2026-11-15.
 
+## Private, consent-based text-file intake
+
+In a private chat, `/file-help` explains the purpose and limits; the user must then send `/file-consent` before a document is processed. `/file-stop` revokes consent. Consent is in-memory and resets on restart. Documents sent in groups are ignored. The sample accepts `.txt`, `.log`, `.java`, `.json`, and `.csv` only when the MIME type matches the extension allowlist and the file decodes as UTF-8 text without NUL bytes. Names containing `/`, `\`, or longer than 128 characters are rejected; user filenames are never used as disk paths. The sample counts lines and reports whether a simple stack-trace pattern appears. It never renders, executes, extracts, or sends the content to AI.
+
+Default `TELEGRAM_FILE_MAX_BYTES` is 1 MiB, and the configured value cannot exceed the current cloud Bot API download limit of 20 MB. The size declared in the incoming document is checked before the API call, `getFile` metadata is checked again, and the streaming download enforces the limit while writing. At most two downloads run concurrently. The implementation uses Telegram's documented `getFile` call followed by `https://api.telegram.org/file/bot<token>/<file_path>`; its file path is treated as untrusted and validated. Files are written using owner-only directory/file permissions under `TELEGRAM_FILE_TEMP_DIR` (default: `${java.io.tmpdir}/telegram-private-uploads`) and deleted in `finally` after success, rejection, download failure, or interruption. If the filesystem refuses cleanup, the app emits a generic cleanup error without the file path or contents; an operator must remove residual temporary data. The text exists transiently in process memory while being counted.
+
+Downloading is disabled by default. To enable the inbound file path in a controlled environment, supply `TELEGRAM_BOT_TOKEN`, set `TELEGRAM_FILE_DOWNLOAD_ENABLED=true`, configure a private temporary directory with enough space, and configure the existing webhook secret. This does not enable outbound Telegram sending; `TELEGRAM_SEND_ENABLED` remains false unless separately changed. The user must first open the bot in private chat. This sample and its tests include no customer files, Telegram IDs, bot credentials, or file IDs. Tests use synthetic text, a fake file gateway, and an in-process HTTP server to verify the Bot API `getFile` then download sequence.
+
+The Bot API file flow and current size/link details were checked in [getFile and File documentation](https://core.telegram.org/bots/api#getfile) on 2026-11-15. The disclosure, direct-submission consent, revocation and data minimization follow the [Bot Developer Terms](https://telegram.org/tos/bot-developers#4-privacy); production services still need an accessible privacy policy and an applicable retention policy.
+
 Dry-run webhook with synthetic test data:
 
 ```bash
@@ -127,6 +138,7 @@ Telegram says to submit `Telegram.WebApp.initData` to the bot backend, compute t
 - The vote example handles explicit commands and callback queries only; it does not provide group membership lookup or infer roles from Telegram group permissions.
 - Jira event notifications depend on an administrator registering an HTTPS webhook with a matching secret and correctly configured event scope; local tests do not verify the Jira tenant or delivery.
 - Grafana acknowledgements are application records only; they do not change Grafana alert state, and the sample does not call Grafana APIs.
+- File intake is private-chat only, requires user consent, and retains no file after processing; it is disabled unless explicitly configured.
 - A Mini App launch can include limited chat context, but this sample does not use it for authorization and receives no group history or permission to send as the user.
 - AI is disabled without a provider key and explicit per-chat consent. The consent store is in-memory and not production-ready.
 - This repository was not configured with a live bot/provider, and no live integration was verified.

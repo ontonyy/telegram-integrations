@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 public class BotReplyService {
     private final Set<String> disclosedUsers = ConcurrentHashMap.newKeySet();
     private final Set<String> consentedUsers = ConcurrentHashMap.newKeySet();
+    private final Set<String> disclosedFileUsers = ConcurrentHashMap.newKeySet();
+    private final Set<String> fileConsentedUsers = ConcurrentHashMap.newKeySet();
     private final TelegramBotClient telegram;
     private final ClaudeClient claude;
 
@@ -25,7 +27,7 @@ public class BotReplyService {
             return Optional.of("Demo assistant. /help lists commands. /ask sends only your submitted question to the configured AI provider after you use /consent. Use /stop to revoke consent.");
         }
         if (command.equals("/help")) {
-            return Optional.of("Commands: /start, /help, /status, /consent, /stop, /ask <question>. AI is optional; no chat history is collected.");
+            return Optional.of("Commands: /start, /help, /status, /consent, /stop, /ask <question>, /file-help, /file-consent, /file-stop. AI is optional; no chat history is collected.");
         }
         if (command.equals("/status")) {
             return Optional.of("Demo status: all sample components are running.");
@@ -43,6 +45,26 @@ public class BotReplyService {
         if (command.equals("/stop")) {
             consentedUsers.remove(userId);
             return Optional.of("AI consent cleared.");
+        }
+        if (command.equals("/file-help")) {
+            if ("private".equals(chatType)) {
+                disclosedFileUsers.add(userId);
+            }
+            return Optional.of("File intake is private-chat only and accepts small .txt, .log, .java, .json or .csv documents. After /file-consent, a submitted file is read briefly as text to count lines and detect a likely stack trace; it is deleted immediately and is not sent to AI. Use /file-stop to revoke consent.");
+        }
+        if (command.equals("/file-consent")) {
+            if (!"private".equals(chatType)) {
+                return Optional.of("File intake consent is available only in a private chat with this bot.");
+            }
+            if (!disclosedFileUsers.contains(userId)) {
+                return Optional.of("Send /file-help first to read how submitted files are processed.");
+            }
+            fileConsentedUsers.add(userId);
+            return Optional.of("File intake consent recorded in volatile demo memory. Eligible files you send directly to this private chat are read as text, summarized as counts only, and deleted immediately. Nothing is sent to AI. Use /file-stop to revoke.");
+        }
+        if (command.equals("/file-stop")) {
+            fileConsentedUsers.remove(userId);
+            return Optional.of("File intake consent cleared.");
         }
         if (command.startsWith("/ask ")) {
             if (!"private".equals(chatType)) {
@@ -62,6 +84,10 @@ public class BotReplyService {
 
     public void sendOrLog(String chatId, String text) {
         telegram.sendOrLog(chatId, text);
+    }
+
+    public boolean hasFileConsent(String userId) {
+        return fileConsentedUsers.contains(userId);
     }
 
     public void sendVotePrompt(

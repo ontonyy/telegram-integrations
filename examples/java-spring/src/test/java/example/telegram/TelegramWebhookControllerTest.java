@@ -29,7 +29,7 @@ class TelegramWebhookControllerTest {
         TelegramWebhookController controller = new TelegramWebhookController(
                 SECRET, replies, new InMemoryTelegramUpdateRegistry(),
                 new GroupVoteService((chatId, userId) -> "10".equals(userId)),
-                new GrafanaAlertService(replies, "", ""));
+                new GrafanaAlertService(replies, "", ""), noFileIntake());
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -70,7 +70,7 @@ class TelegramWebhookControllerTest {
         TelegramWebhookController controller = new TelegramWebhookController(
                 "", replies, new InMemoryTelegramUpdateRegistry(),
                 new GroupVoteService((chatId, userId) -> false),
-                new GrafanaAlertService(replies, "", ""));
+                new GrafanaAlertService(replies, "", ""), noFileIntake());
         MockMvc unconfigured = MockMvcBuilders.standaloneSetup(controller).build();
 
         unconfigured.perform(post("/telegram/webhook")
@@ -177,6 +177,20 @@ class TelegramWebhookControllerTest {
                                 "message_id", 501,
                                 "chat", Map.of("id", -12345, "type", "supergroup")),
                         "data", data)));
+    }
+
+    private FileIntakeService noFileIntake() {
+        return new FileIntakeService(new TelegramFileGateway() {
+            @Override
+            public DownloadInfo getFile(String fileId) {
+                throw new AssertionError("Unexpected test file download");
+            }
+
+            @Override
+            public void download(String filePath, java.nio.file.Path destination, long maxBytes) {
+                throw new AssertionError("Unexpected test file download");
+            }
+        }, 1_024, java.nio.file.Path.of("build", "unused-file-intake-test"));
     }
 
     private static final class RecordingTelegramBotClient extends TelegramBotClient {
