@@ -10,7 +10,7 @@ This small Java 25 / Spring Boot app contains seven patterns:
 4. A signed Jira Cloud webhook adapter that filters issue events and sends a minimal Telegram notification.
 5. A signed Grafana Alerting webhook with an allowlisted, application-only acknowledgement button.
 6. A consent-based Bot API text-file intake that downloads to a private temporary directory and deletes immediately.
-7. Optional Claude Messages API call for a user-submitted `/ask` prompt after `/consent` in a private bot chat.
+7. Optional Claude Messages API flow for a directly submitted private-chat question, with disclosure, feature consent, and a separate confirmation for each exact prompt.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live test fixture, chat history indexing, Business-chat ingestion, TDLib, file downloads, or any real send. See [remaining examples](../../tasks/1.md) for later TDLib/file exercises.
 
@@ -105,7 +105,7 @@ curl -i -X POST http://localhost:8080/telegram/webhook \
   -d '{"message":{"message_id":1,"chat":{"id":12345,"type":"private"},"from":{"id":12345},"text":"/start"}}'
 ```
 
-The `demo` profile supplies a public, non-secret local placeholder for the webhook header. The server logs only a dry-run marker without the message or destination, and returns HTTP 200. Try `/help`, `/status`, `/consent`, and `/ask Please summarize this sample issue`. Send `/start` before `/consent`. Consent exists only in memory and resets on restart. The `/ask` input is not sent anywhere unless an Anthropic key is separately configured. Without a configured webhook secret (or the explicit demo profile), the webhook returns HTTP 503.
+The `demo` profile supplies a public, non-secret local placeholder for the webhook header. The server logs only a dry-run marker without the message or destination, and returns HTTP 200. Try `/ai-help`, `/consent`, `/ask Please summarize this sample issue`, then `/ai-confirm`. The exact prompt stays only in volatile application memory until confirmation, cancellation, revocation, or restart; the provider is not called before `/ai-confirm`. Use `/ai-cancel` to discard a staged prompt and `/stop` to revoke AI consent and clear it. The example never adds chat history, files, Business messages, or other users' messages to the request. Without configured Anthropic credentials, confirmation still makes no network call. Without a configured webhook secret (or the explicit demo profile), the webhook returns HTTP 503.
 
 Open `http://localhost:8080/` to inspect the Mini App form. A normal browser does not provide Telegram-signed `initData`; submit/status endpoints reject it unless a fresh launch payload and `TELEGRAM_BOT_TOKEN` are supplied. No credentials are provided here, so authenticated submission is not available in this local demo by default. The form sends raw `initData` in POST bodies, never treats `initDataUnsafe` or a browser-supplied Telegram ID as proof of identity, and displays a synthetic request status. Use HTTPS when deploying it.
 
@@ -115,7 +115,7 @@ The backend exposes `POST /api/miniapp/requests` to validate launch data and cre
 
 All credentials are environment variables. The default `TELEGRAM_SEND_ENABLED=false` keeps sends disabled. Keep it false. Setting it true enables outbound Bot API calls when a real update is handled; this repository does not ask you to do so.
 
-To enable the separate model call in a controlled environment, set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` to a model available to your account. Only a private-chat `/ask` after explicit `/consent` invokes the model. `/stop` removes consent. This is an illustration of a bounded direct-to-bot prompt; review current Telegram and provider terms before deploying it. Business message content is never routed through this code.
+The command flow is `/ai-help` → `/consent` → `/ask <question>` → inspect the bot's confirmation prompt → `/ai-confirm`. A new explicit confirmation is required for every question. `/ai-cancel` removes a staged prompt; `/stop` revokes feature consent and discards pending text. Only `/ai-confirm` can call the configured Anthropic Messages API, with exactly the submitted prompt as the user message. No history, files, group messages, other users' content, or Telegram Business messages are collected. The application holds staged text in volatile memory and does not persist prompts or answers. Anthropic states that API inputs and outputs are normally deleted from its backend within 30 days, with exceptions for legal requirements, policy enforcement, or a different agreement; see its [retention terms](https://privacy.anthropic.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data). The disclosure includes this current boundary; verify the provider plan and terms before any real use. `/human` marks an in-memory follow-up request, but no operator/helpdesk is connected in this demo. This flow is a scoped example, not a determination that every deployment satisfies Telegram policy.
 
 ```bash
 TELEGRAM_BOT_TOKEN='<secret from a controlled test bot>' \
@@ -140,7 +140,7 @@ Telegram says to submit `Telegram.WebApp.initData` to the bot backend, compute t
 - Grafana acknowledgements are application records only; they do not change Grafana alert state, and the sample does not call Grafana APIs.
 - File intake is private-chat only, requires user consent, and retains no file after processing; it is disabled unless explicitly configured.
 - A Mini App launch can include limited chat context, but this sample does not use it for authorization and receives no group history or permission to send as the user.
-- AI is disabled without a provider key and explicit per-chat consent. The consent store is in-memory and not production-ready.
+- AI is disabled without provider credentials. Consent, staged prompts, and handoff markers are volatile in-memory demo state; every exact prompt also requires its own `/ai-confirm`. `/human` is only a marker because no operator queue is connected.
 - This repository was not configured with a live bot/provider, and no live integration was verified.
 - `./gradlew test` verifies local behavior only; signed Mini App fixtures are synthetic. It does not prove Telegram launch, Telegram delivery, provider connectivity, or account authorization.
 
@@ -149,4 +149,5 @@ Telegram says to submit `Telegram.WebApp.initData` to the bot backend, compute t
 - [Bot API](https://core.telegram.org/bots/api), [FAQ and group visibility](https://core.telegram.org/bots/faq)
 - [Mini Apps and initData validation](https://core.telegram.org/bots/webapps)
 - [Anthropic Messages API](https://platform.claude.com/docs/en/api/messages)
-- [Telegram terms for bot developers](https://telegram.org/tos/bot-developers)
+- [Telegram API Terms](https://core.telegram.org/api/terms), [Content Licensing Terms](https://telegram.org/tos/content-licensing), [Bot Developer Terms](https://telegram.org/tos/bot-developers)
+- [Anthropic API data retention](https://privacy.anthropic.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data) (checked 2026-11-15)

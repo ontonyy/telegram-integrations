@@ -1,15 +1,20 @@
 package example.telegram;
 
-import java.util.Optional;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 
 @Service
 public class BotReplyService {
-    private final Set<String> disclosedUsers = ConcurrentHashMap.newKeySet();
+    private static final int MAX_PENDING_AI_QUESTIONS = 1_000;
+    private final Set<String> disclosedAiUsers = ConcurrentHashMap.newKeySet();
     private final Set<String> consentedUsers = ConcurrentHashMap.newKeySet();
+    private final Map<String, String> pendingAiQuestions = new ConcurrentHashMap<>();
+    private final Set<String> humanHandoffUsers = ConcurrentHashMap.newKeySet();
+    private final Object aiRequestLock = new Object();
     private final Set<String> disclosedFileUsers = ConcurrentHashMap.newKeySet();
     private final Set<String> fileConsentedUsers = ConcurrentHashMap.newKeySet();
     private final TelegramBotClient telegram;
@@ -23,28 +28,75 @@ public class BotReplyService {
     public Optional<String> handle(String rawText, String chatType, String chatId, String userId) {
         String command = rawText.strip();
         if (command.equals("/start")) {
-            disclosedUsers.add(userId);
-            return Optional.of("Demo assistant. /help lists commands. /ask sends only your submitted question to the configured AI provider after you use /consent. Use /stop to revoke consent.");
+            return Optional.of("Demo assistant. Send /ai-help to read how the optional AI feature handles one question at a time.");
         }
         if (command.equals("/help")) {
-            return Optional.of("Commands: /start, /help, /status, /consent, /stop, /ask <question>, /file-help, /file-consent, /file-stop. AI is optional; no chat history is collected.");
+            return Optional.of("Commands: /start, /help, /status, /ai-help, /consent, /ask <question>, /ai-confirm, /ai-cancel, /stop, /human, /file-help, /file-consent, /file-stop. AI is optional; no chat history is collected.");
         }
         if (command.equals("/status")) {
             return Optional.of("Demo status: all sample components are running.");
+        }
+        if (command.equals("/ai-help")) {
+            if (!"private".equals(chatType)) {
+                return Optional.of("AI disclosure and requests are available only in a private chat with this bot.");
+            }
+            disclosedAiUsers.add(userId);
+            return Optional.of("AI disclosure: only the exact text you submit with /ask is held in this app's volatile memory until you confirm, cancel, revoke consent, or restart the app. It is not sent to a provider until you confirm that specific question with /ai-confirm. On confirmation, that text is sent to the configured Anthropic API (Claude) to generate an answer; no chat history, other users' messages, files, or Business chats are added. Anthropic says API inputs and outputs are normally deleted from its backend within 30 days, with exceptions for legal requirements, policy enforcement, or a different agreement. This app does not persist prompts or answers. Use /ai-cancel before sending or /stop to revoke consent and clear a pending question. Provider terms and retention may change; review them before deployment: https://privacy.anthropic.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data . Send /consent only if you agree to the disclosed processing. A separate /ai-confirm is still required for every question.");
         }
         if (command.equals("/consent")) {
             if (!"private".equals(chatType)) {
                 return Optional.of("Consent and AI requests are available only in a private chat with this bot.");
             }
-            if (!disclosedUsers.contains(userId)) {
-                return Optional.of("Send /start first to read how submitted questions are processed.");
+            if (!disclosedAiUsers.contains(userId)) {
+                return Optional.of("Send /ai-help first to read the provider, purpose and retention disclosure.");
             }
-            consentedUsers.add(userId);
-            return Optional.of("Consent recorded in volatile demo memory. A later /ask question you submit will be sent to the configured AI provider. Use /stop to revoke.");
+            synchronized (aiRequestLock) {
+                consentedUsers.add(userId);
+            }
+            return Optional.of("AI feature consent recorded in volatile demo memory. Each /ask question will wait for a separate /ai-confirm before it is sent to Anthropic. Use /stop to revoke consent and clear any pending question.");
+        }
+        if (command.equals("/ai-cancel")) {
+            if (!"private".equals(chatType)) {
+                return Optional.of("AI requests are available only in a private chat with this bot.");
+            }
+            synchronized (aiRequestLock) {
+                pendingAiQuestions.remove(userId);
+            }
+            return Optional.of("Pending AI question cleared. Nothing was sent to the provider.");
         }
         if (command.equals("/stop")) {
-            consentedUsers.remove(userId);
-            return Optional.of("AI consent cleared.");
+            synchronized (aiRequestLock) {
+                consentedUsers.remove(userId);
+                pendingAiQuestions.remove(userId);
+            }
+            return Optional.of("AI consent cleared and any pending question discarded. Nothing pending was sent to the provider.");
+        }
+        if (command.equals("/ai-confirm")) {
+            if (!"private".equals(chatType)) {
+                return Optional.of("AI requests are available only in a private chat with this bot.");
+            }
+            String question;
+            synchronized (aiRequestLock) {
+                if (!consentedUsers.contains(userId)) {
+                    pendingAiQuestions.remove(userId);
+                    return Optional.of("AI consent is not active. Read /ai-help and send /consent before staging a new question.");
+                }
+                question = pendingAiQuestions.remove(userId);
+                if (question == null) {
+                    return Optional.of("No pending AI question. Send /ask <question> first; each question needs its own /ai-confirm.");
+                }
+            }
+            return Optional.of(claude.answer(question));
+        }
+        if (command.equals("/human")) {
+            if (!"private".equals(chatType)) {
+                return Optional.of("Human follow-up requests are available only in a private chat with this bot.");
+            }
+            synchronized (aiRequestLock) {
+                pendingAiQuestions.remove(userId);
+                humanHandoffUsers.add(userId);
+            }
+            return Optional.of("Human follow-up marked in this demo. No operator/helpdesk queue is connected, so nobody has been notified. Connect an authorized helpdesk handoff before using this with customers. No AI request was sent.");
         }
         if (command.equals("/file-help")) {
             if ("private".equals(chatType)) {
@@ -70,14 +122,23 @@ public class BotReplyService {
             if (!"private".equals(chatType)) {
                 return Optional.of("For privacy, /ask is disabled in groups. Open a private chat with the bot.");
             }
-            if (!consentedUsers.contains(userId)) {
-                return Optional.of("First read the disclosure in /start, then send /consent if you agree.");
-            }
             String question = command.substring("/ask ".length()).strip();
             if (question.isBlank() || question.length() > 4_000) {
                 return Optional.of("Please send a question of up to 4000 characters.");
             }
-            return Optional.of(claude.answer(question));
+            synchronized (aiRequestLock) {
+                if (!consentedUsers.contains(userId)) {
+                    return Optional.of("First read /ai-help, then send /consent if you agree.");
+                }
+                if (pendingAiQuestions.containsKey(userId)) {
+                    return Optional.of("A question is already pending. Send /ai-confirm to send that exact question, or /ai-cancel to discard it.");
+                }
+                if (pendingAiQuestions.size() >= MAX_PENDING_AI_QUESTIONS) {
+                    return Optional.of("The demo cannot stage another AI question right now. Try again later.");
+                }
+                pendingAiQuestions.put(userId, question);
+            }
+            return Optional.of("Review the exact question you submitted. If you want to send only that text to the configured Anthropic API for an answer, send /ai-confirm. Send /ai-cancel to discard it. No provider call has happened yet.");
         }
         return Optional.empty();
     }
@@ -88,6 +149,10 @@ public class BotReplyService {
 
     public boolean hasFileConsent(String userId) {
         return fileConsentedUsers.contains(userId);
+    }
+
+    public boolean hasHumanHandoffRequest(String userId) {
+        return humanHandoffUsers.contains(userId);
     }
 
     public void sendVotePrompt(

@@ -46,7 +46,7 @@ Design AI features to avoid ingesting Telegram-origin content by default. Before
 
 The dated ecosystem research is indexed in [02-research/README.md](02-research/README.md). It includes connector capabilities and limits, source-reviewed agent bridges and MCP readers, customer and internal workflows, groups/topics, AI access boundaries, and Telegram technical notes. Russian reader copies are indexed in [ru/README.md](ru/README.md).
 
-A small Java 25 / Spring Boot sample is available in [examples/java-spring](examples/java-spring/README.md): dry-run Bot API webhook, Mini App `initData` verification, and optional consent-gated Claude API call. No credentials are included and outbound messages are disabled by default. TDLib and bounded file intake remain in [tasks/1.md](tasks/1.md).
+A small Java 25 / Spring Boot sample is available in [examples/java-spring](examples/java-spring/README.md): dry-run Bot API webhook, Mini App `initData` verification, and optional Claude API flow with disclosure, revocable consent, and one confirmation per submitted question. No credentials are included and outbound messages are disabled by default. The implemented file-intake and per-question AI consent flows are documented in the sample README; the remaining TDLib example is tracked in [tasks/1.md](tasks/1.md).
 
 ## Project-specific opportunities
 
