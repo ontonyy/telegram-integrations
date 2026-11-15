@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -20,11 +21,13 @@ class TelegramWebhookControllerTest {
     private final ObjectMapper mapper = new ObjectMapper();
     private RecordingTelegramBotClient telegram;
     private BusinessSupportService businessSupport;
+    private AtomicInteger salesUpserts;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         telegram = new RecordingTelegramBotClient();
+        salesUpserts = new AtomicInteger();
         businessSupport = new BusinessSupportService(telegram, "operator-1"::equals);
         BotReplyService replies = new BotReplyService(
                 telegram, new ClaudeClient("", "", mapper, request -> new TransportResponse(200, "{}")));
@@ -32,7 +35,11 @@ class TelegramWebhookControllerTest {
                 SECRET, replies, new InMemoryTelegramUpdateRegistry(),
                 new GroupVoteService((chatId, userId) -> "10".equals(userId)),
                 new GrafanaAlertService(replies, "", ""), noFileIntake(),
-                businessSupport);
+                businessSupport,
+                new SalesLeadService(contact -> {
+                    salesUpserts.incrementAndGet();
+                    return "9001";
+                }, telegram, "-900", "Demo sales queue"));
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -44,6 +51,19 @@ class TelegramWebhookControllerTest {
         send(update, SECRET).andExpect(status().isOk());
 
         assertEquals(1, telegram.sendCalls);
+    }
+
+    @Test
+    void salesFlowIsRoutedThroughWebhookAndDuplicateUpdateIsNotRepeated() throws Exception {
+        send(update(48, "/sales"), SECRET).andExpect(status().isOk());
+        send(update(49, "/sales-consent"), SECRET).andExpect(status().isOk());
+        String submission = update(50, "/sales-submit lead@example.test|Ada|Lovelace|-");
+        send(submission, SECRET).andExpect(status().isOk());
+        int sendsAfterSubmit = telegram.sendCalls;
+        send(submission, SECRET).andExpect(status().isOk());
+
+        assertEquals(1, salesUpserts.get());
+        assertEquals(sendsAfterSubmit, telegram.sendCalls);
     }
 
     @Test
@@ -74,7 +94,8 @@ class TelegramWebhookControllerTest {
                 "", replies, new InMemoryTelegramUpdateRegistry(),
                 new GroupVoteService((chatId, userId) -> false),
                 new GrafanaAlertService(replies, "", ""), noFileIntake(),
-                new BusinessSupportService(telegram, "operator-1"::equals));
+                new BusinessSupportService(telegram, "operator-1"::equals),
+                new SalesLeadService(contact -> "9001", telegram, "", "Demo sales queue"));
         MockMvc unconfigured = MockMvcBuilders.standaloneSetup(controller).build();
 
         unconfigured.perform(post("/telegram/webhook")

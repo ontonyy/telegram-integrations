@@ -43,7 +43,8 @@ class FileIntakeWebhookTest {
                 new GroupVoteService((chatId, userId) -> false),
                 new GrafanaAlertService(replies, "", ""),
                 files,
-                new BusinessSupportService(telegram, operatorId -> false));
+                new BusinessSupportService(telegram, operatorId -> false),
+                new SalesLeadService(contact -> "9001", telegram, "", "Demo sales queue"));
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 

@@ -4,6 +4,7 @@ import tools.jackson.databind.JsonNode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ public class TelegramWebhookController {
     private final GrafanaAlertService grafanaAlertService;
     private final FileIntakeService fileIntakeService;
     private final BusinessSupportService businessSupportService;
+    private final SalesLeadService salesLeadService;
 
     public TelegramWebhookController(
             @Value("${telegram.webhook-secret:}") String webhookSecret,
@@ -29,7 +31,8 @@ public class TelegramWebhookController {
             GroupVoteService groupVoteService,
             GrafanaAlertService grafanaAlertService,
             FileIntakeService fileIntakeService,
-            BusinessSupportService businessSupportService) {
+            BusinessSupportService businessSupportService,
+            SalesLeadService salesLeadService) {
         this.webhookSecret = webhookSecret;
         this.replyService = replyService;
         this.updateRegistry = updateRegistry;
@@ -37,6 +40,7 @@ public class TelegramWebhookController {
         this.grafanaAlertService = grafanaAlertService;
         this.fileIntakeService = fileIntakeService;
         this.businessSupportService = businessSupportService;
+        this.salesLeadService = salesLeadService;
     }
 
     @PostMapping("/telegram/webhook")
@@ -130,6 +134,13 @@ public class TelegramWebhookController {
                         }
                     });
                 }
+                return ResponseEntity.ok().build();
+            }
+            if (Set.of("/sales", "/sales-consent", "/sales-stop", "/sales-submit")
+                    .contains(command)) {
+                updateRegistry.processOnce(updateId, () -> salesLeadService
+                        .handle(text, chatType, chatId, userId)
+                        .ifPresent(body -> replyService.sendOrLog(chatId, body)));
                 return ResponseEntity.ok().build();
             }
             updateRegistry.processOnce(updateId, () -> {

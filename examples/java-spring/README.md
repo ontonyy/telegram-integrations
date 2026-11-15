@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This Java 25 / Spring Boot app contains eight patterns:
+This Java 25 / Spring Boot app contains nine patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -12,6 +12,7 @@ This Java 25 / Spring Boot app contains eight patterns:
 6. A consent-based Bot API text-file intake that downloads to a private temporary directory and deletes immediately.
 7. Optional Claude Messages API flow for a directly submitted private-chat question, with disclosure, feature consent, and a separate confirmation for each exact prompt.
 8. Mock-backed Telegram Business support intake: connection rights, new/edit/delete updates, a minimal synthetic ticket, an allowlisted operator takeover, and a reply path that checks connection status, `can_reply`, and the 24-hour window before including `business_connection_id`.
+9. Consent-gated one-to-one sales lead capture: user-entered fields are upserted into HubSpot by email, assigned to a configured HubSpot owner, and routed to a manager chat with only the CRM contact reference.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
 
@@ -121,6 +122,25 @@ The adapter records a synthetic ticket reference, the Telegram conversation/mess
 Set `TELEGRAM_BUSINESS_OPERATOR_IDS` to comma-separated synthetic or approved operator IDs before using the authorization seam. The demo has no operator UI, helpdesk queue, persistent ticket store, or real Business account; tests call the handoff/reply service directly with a fake sender. A production operator interface must authenticate employees independently, enforce assignment at the action boundary, and use durable storage, idempotency, and a retention/deletion policy. Telegram user IDs submitted by a caller are not proof of an employee role.
 
 The Business path does not send customer data to AI or other third parties. Telegram's Bot Developer Terms require clear disclosure of retention and purpose and prohibit third-party disclosure of Business messages/files without user authorization. No Business account, real customer chat, support product, or Telegram message was used. The Bot API Business update model, connection rights and `sendMessage.business_connection_id` were checked against [Telegram's Bot API](https://core.telegram.org/bots/api#businessconnection), [connected Business bots](https://core.telegram.org/api/bots/connected-business-bots), and [Bot Developer Terms](https://telegram.org/tos/bot-developers) on 2026-11-15.
+
+## Consent-gated sales lead capture with HubSpot
+
+The private-chat flow is `/sales` → `/sales-consent` → `/sales-submit email|first name|last name|company`. `/sales` discloses the exact fields and recipients before consent. `/sales-stop` revokes the in-memory consent. The customer supplies these fields directly; the adapter never copies their Telegram ID, username, profile, group membership, or chat history. Consent to submit a sales request is not marketing subscription consent.
+
+The Java adapter uses HubSpot's current stable date-versioned API (`2026-09`) and batch upsert keyed by email. It writes only `email`, `firstname`, `lastname`, `company` when provided, and the configured `hubspot_owner_id`; a configured owner is required for the adapter to write. The customer gets the returned CRM contact reference. A configured manager chat receives only the queue name and contact reference, never the supplied contact fields. Repeated email submissions use the same HubSpot contact key; the demo suppresses repeat manager notifications only in process memory. It does not create a deal, subscribe the contact to marketing, or prove that the owner ID exists in a target HubSpot portal.
+
+Configure the environment variables below only in a controlled test deployment. The HubSpot private app/OAuth grant must include `crm.objects.contacts.write`; the target portal must allow the configured owner and accept the submitted values. HubSpot's 2026-09 write path enforces portal-specific record creation validation, so administrators may require additional properties and reject this sample payload. Check the target portal's settings before a live write. API version, batch upsert semantics, and write validation were checked in [HubSpot's API overview](https://developers.hubspot.com/docs/api-reference/latest/overview), [contact batch upsert](https://developers.hubspot.com/docs/api-reference/latest/crm/objects/contacts/batch/upsert-contacts), and [2026-09 write validation notice](https://developers.hubspot.com/changelog/crm-api-write-validation-enforcement) on 2026-11-15.
+
+```bash
+HUBSPOT_ACCESS_TOKEN='<HubSpot private app or OAuth access token>' \
+HUBSPOT_OWNER_ID='<owner ID from the target portal>' \
+TELEGRAM_SALES_MANAGER_CHAT_ID='<approved manager chat ID>' \
+SALES_QUEUE_NAME='Demo sales queue' \
+TELEGRAM_SEND_ENABLED=false \
+./gradlew bootRun
+```
+
+Tests use a fake CRM gateway, a mocked HTTP transport and synthetic webhook updates. No HubSpot account, Telegram account, customer data, or live CRM write/message was used. Consent, update de-duplication, and manager-notification de-duplication are in-memory and lost on restart. In production use durable consent/audit records, a persistent idempotency key and outbox, a data retention policy, an explicit contact-update policy, and independent authorization for the manager workflow. This is a contact capture pattern, not a complete CRM/helpdesk integration.
 
 ## Optional credentials (do not use for this local demo)
 

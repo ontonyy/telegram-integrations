@@ -52,7 +52,8 @@ class GrafanaWebhookControllerTest {
                         throw new AssertionError("Unexpected test file download");
                     }
                 }, 1_024, java.nio.file.Path.of("build", "unused-file-intake-test")),
-                new BusinessSupportService(telegram, operatorId -> false));
+                new BusinessSupportService(telegram, operatorId -> false),
+                new SalesLeadService(contact -> "9001", telegram, "", "Demo sales queue"));
         grafanaMvc = MockMvcBuilders.standaloneSetup(grafanaController).build();
         telegramMvc = MockMvcBuilders.standaloneSetup(telegramController).build();
     }

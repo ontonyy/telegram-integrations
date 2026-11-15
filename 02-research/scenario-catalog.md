@@ -1,11 +1,11 @@
 # Practical scenario catalog
 
-**Checked:** 2026-11-14. Complexity: Low = configuration; Medium = integration/backend; High = custom client or sensitive multi-system workflow.
+**Checked:** 2026-11-15. Complexity: Low = configuration; Medium = integration/backend; High = custom client or sensitive multi-system workflow.
 
 | Pilot | User / surface | Systems and data flow | Mechanism / identity | AI, cost and complexity |
 |---|---|---|---|---|
 | Customer support inbox | Customer chats; agent replies in helpdesk | Telegram update → ticket inbox → assignment → agent response | Bot API bot, or Business connected bot if product supports it | No AI needed. Helpdesk seat/hosting cost. Low–medium. |
-| New lead capture | Prospect shares need; sales manager sees assigned lead | Bot/Mini App → CRM contact/deal → task → manager alert | Bot API; replies from bot after opt-in | No AI. CRM plus automation task/seat fees. Low–medium. |
+| New lead capture | Prospect submits fields after disclosure and consent; manager gets a CRM reference | Bot API private chat → HubSpot contact upsert by email → configured CRM owner → manager reference alert | Bot API and HubSpot CRM API; only user-submitted fields are written, manager alert omits PII | No AI. HubSpot account/app access required. Medium. The Java sample does not create a deal or marketing subscription; see [HubSpot Java scenario](../examples/java-spring/README.md#consent-gated-sales-lead-capture-with-hubspot). |
 | Appointment booking | Customer selects time and gets reminder | Bot choice or Mini App → booking API/calendar → confirmation | Bot API + Mini App for complex slots | No AI. Booking/provider fees. Medium. |
 | Digital product checkout | Customer buys a digital plan/content | Bot invoice in Stars → payment event → entitlement | Bot API; bot sends receipt/status | No AI. Stars economics and support work. Medium. |
 | Physical order tracker | Customer enters order and checks fulfilment | Mini App → order/stock/payment system → status bot message | Bot API + Mini App + third-party provider | No AI. Provider and hosting costs. Medium. |
