@@ -3,8 +3,10 @@ package example.telegram;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +27,8 @@ class TelegramWebhookControllerTest {
         BotReplyService replies = new BotReplyService(
                 telegram, new ClaudeClient("", "", mapper, request -> new TransportResponse(200, "{}")));
         TelegramWebhookController controller = new TelegramWebhookController(
-                SECRET, replies, new InMemoryTelegramUpdateRegistry());
+                SECRET, replies, new InMemoryTelegramUpdateRegistry(),
+                new GroupVoteService((chatId, userId) -> "10".equals(userId)));
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -64,7 +67,8 @@ class TelegramWebhookControllerTest {
         BotReplyService replies = new BotReplyService(
                 telegram, new ClaudeClient("", "", mapper, request -> new TransportResponse(200, "{}")));
         TelegramWebhookController controller = new TelegramWebhookController(
-                "", replies, new InMemoryTelegramUpdateRegistry());
+                "", replies, new InMemoryTelegramUpdateRegistry(),
+                new GroupVoteService((chatId, userId) -> false));
         MockMvc unconfigured = MockMvcBuilders.standaloneSetup(controller).build();
 
         unconfigured.perform(post("/telegram/webhook")
@@ -86,6 +90,54 @@ class TelegramWebhookControllerTest {
         assertEquals(2, telegram.sendCalls);
     }
 
+    @Test
+    void groupVoteRecordsAllowedUserAndMakesRepeatedUpdatesIdempotent() throws Exception {
+        send(groupUpdate(100, 10, "/vote"), SECRET).andExpect(status().isOk());
+        assertEquals(1, telegram.votePromptCalls);
+        String voteId = telegram.votePrompt.text().split("Vote ID: ")[1].split("\\n")[0];
+        String callback = "vote|" + voteId + "|0";
+        String firstTap = callbackUpdate(101, 77, 10, callback);
+
+        send(firstTap, SECRET).andExpect(status().isOk());
+        assertEquals(1, telegram.callbackAnswers);
+        assertEquals(1, telegram.voteEdits);
+        assertTrue(telegram.lastVoteMessage.contains("Tuesday 10:00: 1"));
+
+        send(firstTap, SECRET).andExpect(status().isOk());
+        assertEquals(2, telegram.callbackAnswers);
+        assertEquals(1, telegram.voteEdits);
+
+        send(callbackUpdate(102, 78, 10, "vote|" + voteId + "|1"), SECRET)
+                .andExpect(status().isOk());
+        assertEquals(2, telegram.voteEdits);
+        assertTrue(telegram.lastVoteMessage.contains("Tuesday 10:00: 0"));
+        assertTrue(telegram.lastVoteMessage.contains("Wednesday 14:00: 1"));
+    }
+
+    @Test
+    void groupVoteRejectsUnlistedUsersAndOnlyCreatorCanClose() throws Exception {
+        send(groupUpdate(200, 10, "/vote"), SECRET).andExpect(status().isOk());
+        String voteId = telegram.votePrompt.text().split("Vote ID: ")[1].split("\\n")[0];
+
+        send(callbackUpdate(201, 88, 11, "vote|" + voteId + "|0"), SECRET)
+                .andExpect(status().isOk());
+        assertEquals(1, telegram.callbackAnswers);
+        assertTrue(telegram.lastCallbackAnswer.contains("not allowed"));
+        assertEquals(0, telegram.voteEdits);
+
+        send(groupUpdate(202, 11, "/closevote " + voteId), SECRET).andExpect(status().isOk());
+        assertEquals(0, telegram.sendCalls);
+        send(groupUpdate(203, 10, "/closevote " + voteId), SECRET).andExpect(status().isOk());
+        assertEquals(1, telegram.sendCalls);
+        assertTrue(telegram.lastSentMessage.startsWith("FINAL RESULTS"));
+    }
+
+    @Test
+    void ignoresVoteCommandsOutsideGroups() throws Exception {
+        send(update(300, "/vote"), SECRET).andExpect(status().isOk());
+        assertEquals(0, telegram.votePromptCalls);
+    }
+
     private org.springframework.test.web.servlet.ResultActions send(String update, String secret) throws Exception {
         return mockMvc.perform(post("/telegram/webhook")
                 .header("X-Telegram-Bot-Api-Secret-Token", secret)
@@ -103,9 +155,38 @@ class TelegramWebhookControllerTest {
                         "text", text)));
     }
 
+    private String groupUpdate(long updateId, long userId, String text) throws Exception {
+        return mapper.writeValueAsString(Map.of(
+                "update_id", updateId,
+                "message", Map.of(
+                        "message_id", updateId,
+                        "chat", Map.of("id", -12345, "type", "supergroup"),
+                        "from", Map.of("id", userId),
+                        "text", text)));
+    }
+
+    private String callbackUpdate(long updateId, long callbackId, long userId, String data) throws Exception {
+        return mapper.writeValueAsString(Map.of(
+                "update_id", updateId,
+                "callback_query", Map.of(
+                        "id", "callback-" + callbackId,
+                        "from", Map.of("id", userId),
+                        "message", Map.of(
+                                "message_id", 501,
+                                "chat", Map.of("id", -12345, "type", "supergroup")),
+                        "data", data)));
+    }
+
     private static final class RecordingTelegramBotClient extends TelegramBotClient {
         private int sendCalls;
+        private int votePromptCalls;
+        private int voteEdits;
+        private int callbackAnswers;
         private boolean failNextSend;
+        private String lastSentMessage;
+        private String lastVoteMessage;
+        private String lastCallbackAnswer;
+        private GroupVoteService.VotePrompt votePrompt;
 
         private RecordingTelegramBotClient() {
             super("", false, "https://api.telegram.org", Duration.ofSeconds(1), new ObjectMapper(),
@@ -115,10 +196,31 @@ class TelegramWebhookControllerTest {
         @Override
         public void sendOrLog(String chatId, String text) {
             sendCalls++;
+            lastSentMessage = text;
             if (failNextSend) {
                 failNextSend = false;
                 throw new IllegalStateException("synthetic delivery failure");
             }
+        }
+
+        @Override
+        public void sendMessageWithInlineKeyboardOrLog(
+                String chatId, String text, List<List<InlineButton>> keyboard) {
+            votePromptCalls++;
+            votePrompt = new GroupVoteService.VotePrompt("", text, keyboard);
+        }
+
+        @Override
+        public void editMessageWithInlineKeyboardOrLog(
+                String chatId, long messageId, String text, List<List<InlineButton>> keyboard) {
+            voteEdits++;
+            lastVoteMessage = text;
+        }
+
+        @Override
+        public void answerCallbackQueryOrLog(String callbackId, String text) {
+            callbackAnswers++;
+            lastCallbackAnswer = text;
         }
     }
 }

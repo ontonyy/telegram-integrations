@@ -17,14 +17,17 @@ public class TelegramWebhookController {
     private final String webhookSecret;
     private final BotReplyService replyService;
     private final TelegramUpdateRegistry updateRegistry;
+    private final GroupVoteService groupVoteService;
 
     public TelegramWebhookController(
             @Value("${telegram.webhook-secret:}") String webhookSecret,
             BotReplyService replyService,
-            TelegramUpdateRegistry updateRegistry) {
+            TelegramUpdateRegistry updateRegistry,
+            GroupVoteService groupVoteService) {
         this.webhookSecret = webhookSecret;
         this.replyService = replyService;
         this.updateRegistry = updateRegistry;
+        this.groupVoteService = groupVoteService;
     }
 
     @PostMapping("/telegram/webhook")
@@ -50,6 +53,10 @@ public class TelegramWebhookController {
 
         JsonNode message = update.path("message");
         if (!message.isObject()) {
+            JsonNode callback = update.path("callback_query");
+            if (callback.isObject()) {
+                return handleCallback(updateIdNode.asLong(), callback);
+            }
             return ResponseEntity.ok().build();
         }
         String text = message.path("text").asText("");
@@ -62,6 +69,26 @@ public class TelegramWebhookController {
 
         try {
             long updateId = updateIdNode.asLong();
+            String command = text.strip().split("\\s", 2)[0].split("@", 2)[0];
+            if ("/vote".equals(command) && isGroup(chatType)) {
+                updateRegistry.processOnce(updateId, () -> {
+                    GroupVoteService.VotePrompt prompt = groupVoteService.start(chatId, userId);
+                    replyService.sendVotePrompt(chatId, prompt.text(), prompt.keyboard());
+                });
+                return ResponseEntity.ok().build();
+            }
+            if ("/closevote".equals(command) && isGroup(chatType)) {
+                String[] parts = text.strip().split("\\s+", 2);
+                if (parts.length == 2) {
+                    updateRegistry.processOnce(updateId, () -> {
+                        GroupVoteService.CloseResult result = groupVoteService.close(chatId, userId, parts[1]);
+                        if (result.authorized()) {
+                            replyService.sendOrLog(chatId, result.finalMessage());
+                        }
+                    });
+                }
+                return ResponseEntity.ok().build();
+            }
             updateRegistry.processOnce(updateId, () -> {
                 Optional<String> reply = replyService.handle(text, chatType, chatId, userId);
                 reply.ifPresent(body -> replyService.sendOrLog(chatId, body));
@@ -71,5 +98,40 @@ public class TelegramWebhookController {
         }
 
         return ResponseEntity.ok().build();
+    }
+
+    private ResponseEntity<Void> handleCallback(long updateId, JsonNode callback) {
+        String callbackId = callback.path("id").asText("");
+        String userId = callback.path("from").path("id").asText("");
+        JsonNode message = callback.path("message");
+        String chatId = message.path("chat").path("id").asText("");
+        String chatType = message.path("chat").path("type").asText("");
+        JsonNode messageIdNode = message.path("message_id");
+        String data = callback.path("data").asText("");
+        if (callbackId.isBlank() || userId.isBlank() || chatId.isBlank() || !isGroup(chatType)
+                || !messageIdNode.canConvertToLong() || data.isBlank()) {
+            return ResponseEntity.ok().build();
+        }
+
+        try {
+            long messageId = messageIdNode.asLong();
+            boolean processed = updateRegistry.processOnce(updateId, () -> {
+                GroupVoteService.VoteResult result = groupVoteService.cast(chatId, userId, data);
+                replyService.answerCallback(callbackId, result.callbackText());
+                if (result.accepted()) {
+                    replyService.editVoteMessage(chatId, messageId, result.updatedMessage(), result.keyboard());
+                }
+            });
+            if (!processed) {
+                replyService.answerCallback(callbackId, "This update was already processed.");
+            }
+        } catch (RuntimeException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    private boolean isGroup(String chatType) {
+        return "group".equals(chatType) || "supergroup".equals(chatType);
     }
 }

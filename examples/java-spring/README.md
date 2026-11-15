@@ -2,11 +2,12 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This small Java 25 / Spring Boot app contains three patterns:
+This small Java 25 / Spring Boot app contains four patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
 2. Telegram Mini App `initData` verification on the Java server.
-3. Optional Claude Messages API call for a user-submitted `/ask` prompt after `/consent` in a private bot chat.
+3. A synthetic group scheduling vote using inline buttons, server-side voter allowlisting and callback de-duplication.
+4. Optional Claude Messages API call for a user-submitted `/ask` prompt after `/consent` in a private bot chat.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live test fixture, chat history indexing, Business-chat ingestion, TDLib, file downloads, or any real send. See [remaining examples](../../tasks/1.md) for later TDLib/file exercises.
 
@@ -52,6 +53,12 @@ CI_JOB_STATUS=failure GITHUB_REPOSITORY=demo/project GITHUB_REF_NAME='feature/<t
 
 This prints a dry-run marker and omits the message body. The CI notifier's formatter and send mode are covered by credential-free tests; no actual chat is contacted by local tests. Do not use `pull_request_target` to run untrusted code with Telegram secrets.
 
+## Group vote example
+
+In a group or supergroup, `/vote` posts a synthetic scheduling question with inline callback buttons. Configure `TELEGRAM_ALLOWED_VOTER_IDS` as a comma-separated allowlist of Telegram numeric user IDs in the process environment; an empty value denies every vote. The example checks the sender identity from Telegram's authenticated webhook update against this server-side allowlist for every callback. The creator can finish the vote with `/closevote <vote-id>`. Each user has one current choice and may change it; duplicate update delivery does not add another vote. The message is edited with current totals, then the creator can post final results.
+
+This demo keeps up to 1,000 votes in process memory. Votes disappear at restart and are not shared between instances; production needs durable shared storage and authorization based on the actual group or business roles. Do not commit real user IDs. With bot privacy mode enabled, Telegram delivers relevant commands and replies to the bot rather than arbitrary group conversation; this sample does not read group history. For a simple unweighted poll, prefer Telegram's native `sendPoll`; inline buttons are useful here because the application needs per-user authorization and changeable, application-owned state. Local tests use synthetic updates and an in-process HTTP server; no real group message is sent.
+
 Dry-run webhook with synthetic test data:
 
 ```bash
@@ -89,6 +96,7 @@ Telegram says to submit `Telegram.WebApp.initData` to the bot backend, compute t
 ## Limits
 
 - Bot API only receives updates Telegram makes available to the bot. With group privacy mode enabled, this sample's `/ask` intentionally rejects group chats.
+- The vote example handles explicit commands and callback queries only; it does not provide group membership lookup or infer roles from Telegram group permissions.
 - A Mini App direct link can carry group context, but the app does not get group history or permission to send as the user.
 - AI is disabled without a provider key and explicit per-chat consent. The consent store is in-memory and not production-ready.
 - This repository was not configured with a live bot/provider, and no live integration was verified.

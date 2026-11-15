@@ -13,6 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -72,6 +74,38 @@ class TelegramBotClientHttpTest {
         JsonNode sent = mapper.readTree(requestBody.get());
         assertEquals("HTML", sent.path("parse_mode").asText());
         assertEquals("<b>CI Failure</b>", sent.path("text").asText());
+    }
+
+    @Test
+    void sendsVoteKeyboardAndCallbackRequestsToExpectedBotApiMethods() throws Exception {
+        List<String> paths = new ArrayList<>();
+        List<String> bodies = new ArrayList<>();
+        startServer(exchange -> {
+            paths.add(exchange.getRequestURI().getPath());
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            writeResponse(exchange, 200, "{\"ok\":true,\"result\":{}}");
+        });
+        TelegramBotClient client = client("synthetic-token", Duration.ofSeconds(2));
+
+        client.sendMessageWithInlineKeyboardOrLog("-123", "Choose a time", List.of(List.of(
+                new TelegramBotClient.InlineButton("Tuesday", "vote|abc123|0"))));
+        client.answerCallbackQueryOrLog("callback-1", "Vote recorded");
+        client.editMessageWithInlineKeyboardOrLog("-123", 55, "Live result", List.of());
+
+        assertEquals(List.of(
+                "/botsynthetic-token/sendMessage",
+                "/botsynthetic-token/answerCallbackQuery",
+                "/botsynthetic-token/editMessageText"), paths);
+        JsonNode send = mapper.readTree(bodies.get(0));
+        assertEquals("-123", send.path("chat_id").asText());
+        assertEquals("Tuesday", send.path("reply_markup").path("inline_keyboard").get(0).get(0)
+                .path("text").asText());
+        assertEquals("vote|abc123|0", send.path("reply_markup").path("inline_keyboard").get(0).get(0)
+                .path("callback_data").asText());
+        assertEquals("callback-1", mapper.readTree(bodies.get(1)).path("callback_query_id").asText());
+        JsonNode edit = mapper.readTree(bodies.get(2));
+        assertEquals(55, edit.path("message_id").asInt());
+        assertEquals("Live result", edit.path("text").asText());
     }
 
     @Test

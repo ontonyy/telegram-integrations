@@ -1,6 +1,7 @@
 package example.telegram;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
@@ -61,5 +62,19 @@ public class BotReplyService {
 
     public void sendOrLog(String chatId, String text) {
         telegram.sendOrLog(chatId, text);
+    }
+
+    public void sendVotePrompt(
+            String chatId, String text, List<List<TelegramBotClient.InlineButton>> keyboard) {
+        telegram.sendMessageWithInlineKeyboardOrLog(chatId, text, keyboard);
+    }
+
+    public void editVoteMessage(
+            String chatId, long messageId, String text, List<List<TelegramBotClient.InlineButton>> keyboard) {
+        telegram.editMessageWithInlineKeyboardOrLog(chatId, messageId, text, keyboard);
+    }
+
+    public void answerCallback(String callbackId, String text) {
+        telegram.answerCallbackQueryOrLog(callbackId, text);
     }
 }

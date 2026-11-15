@@ -5,6 +5,7 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -34,15 +35,48 @@ public class TelegramBotClient {
     }
 
     public void sendOrLog(String chatId, String text) {
-        sendOrLog(chatId, text, null);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chat_id", chatId);
+        payload.put("text", text);
+        sendMethodOrLog("sendMessage", payload);
     }
 
     /** Sends HTML parse mode; callers must escape any dynamic values inserted into the HTML. */
     public void sendHtmlOrLog(String chatId, String html) {
-        sendOrLog(chatId, html, "HTML");
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chat_id", chatId);
+        payload.put("text", html);
+        payload.put("parse_mode", "HTML");
+        sendMethodOrLog("sendMessage", payload);
     }
 
-    private void sendOrLog(String chatId, String text, String parseMode) {
+    public void sendMessageWithInlineKeyboardOrLog(
+            String chatId, String text, List<List<InlineButton>> keyboard) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chat_id", chatId);
+        payload.put("text", text);
+        payload.put("reply_markup", Map.of("inline_keyboard", serializeKeyboard(keyboard)));
+        sendMethodOrLog("sendMessage", payload);
+    }
+
+    public void editMessageWithInlineKeyboardOrLog(
+            String chatId, long messageId, String text, List<List<InlineButton>> keyboard) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chat_id", chatId);
+        payload.put("message_id", messageId);
+        payload.put("text", text);
+        payload.put("reply_markup", Map.of("inline_keyboard", serializeKeyboard(keyboard)));
+        sendMethodOrLog("editMessageText", payload);
+    }
+
+    public void answerCallbackQueryOrLog(String callbackQueryId, String text) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("callback_query_id", callbackQueryId);
+        payload.put("text", text);
+        sendMethodOrLog("answerCallbackQuery", payload);
+    }
+
+    private void sendMethodOrLog(String method, Map<String, Object> payload) {
         if (!sendEnabled) {
             System.out.println("DRY RUN: Telegram delivery is disabled (message and destination omitted)");
             return;
@@ -51,15 +85,9 @@ public class TelegramBotClient {
             throw new IllegalStateException("TELEGRAM_BOT_TOKEN is required when sends are enabled");
         }
         try {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("chat_id", chatId);
-            payload.put("text", text);
-            if (parseMode != null) {
-                payload.put("parse_mode", parseMode);
-            }
             String body = mapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(apiBaseUrl.replaceAll("/+$", "") + "/bot" + token + "/sendMessage"))
+                    .uri(URI.create(apiBaseUrl.replaceAll("/+$", "") + "/bot" + token + "/" + method))
                     .timeout(requestTimeout)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -72,4 +100,14 @@ public class TelegramBotClient {
             throw new IllegalStateException("Telegram send failed", exception);
         }
     }
+
+    private List<List<Map<String, String>>> serializeKeyboard(List<List<InlineButton>> keyboard) {
+        return keyboard.stream()
+                .map(row -> row.stream()
+                        .map(button -> Map.of("text", button.text(), "callback_data", button.callbackData()))
+                        .toList())
+                .toList();
+    }
+
+    public record InlineButton(String text, String callbackData) {}
 }
