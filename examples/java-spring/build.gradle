@@ -29,3 +29,11 @@ tasks.withType(JavaCompile).configureEach {
 tasks.withType(Test).configureEach {
     jvmArgs '--add-modules=jdk.httpserver'
 }
+
+tasks.register('notifyTelegram', JavaExec) {
+    group = 'application'
+    description = 'Send a formatted CI result to Telegram, or print a dry-run marker.'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('example.telegram.CiNotificationCommand')
+}

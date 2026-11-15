@@ -4,6 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -33,15 +34,30 @@ public class TelegramBotClient {
     }
 
     public void sendOrLog(String chatId, String text) {
+        sendOrLog(chatId, text, null);
+    }
+
+    /** Sends HTML parse mode; callers must escape any dynamic values inserted into the HTML. */
+    public void sendHtmlOrLog(String chatId, String html) {
+        sendOrLog(chatId, html, "HTML");
+    }
+
+    private void sendOrLog(String chatId, String text, String parseMode) {
         if (!sendEnabled) {
-            System.out.printf("DRY RUN: reply would be sent to chat=%s (message content omitted)%n", chatId);
+            System.out.println("DRY RUN: Telegram delivery is disabled (message and destination omitted)");
             return;
         }
         if (token.isBlank()) {
             throw new IllegalStateException("TELEGRAM_BOT_TOKEN is required when sends are enabled");
         }
         try {
-            String body = mapper.writeValueAsString(Map.of("chat_id", chatId, "text", text));
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("chat_id", chatId);
+            payload.put("text", text);
+            if (parseMode != null) {
+                payload.put("parse_mode", parseMode);
+            }
+            String body = mapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiBaseUrl.replaceAll("/+$", "") + "/bot" + token + "/sendMessage"))
                     .timeout(requestTimeout)

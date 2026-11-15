@@ -40,6 +40,18 @@ This is a focused pattern scan, not a guarantee that every possible secret forma
 
 The direct sender uses Java's `HttpClient`. Tests point its API base URL at an in-process HTTP server; the default URL remains Telegram's official endpoint. The sample does not retry sends automatically: for HTTP 429, follow Bot API `retry_after` guidance with bounded backoff in a production queue, because blindly repeating a request can duplicate a message. A Bot API bot is a separate account and cannot search arbitrary account history; a user must open the bot or add it to an authorized chat before the bot can message there.
 
+## GitHub Actions notification example
+
+The repository workflow at `.github/workflows/java-sample-ci.yml` runs the Java sample tests on pull requests, but deliberately skips Telegram notification steps for every pull request, including same-repository branches. On pushes to `master` and manual runs against `master`, it reports the final workflow status and a link to that run. With no configuration it stays in dry-run mode. To opt in later, configure `TELEGRAM_BOT_TOKEN` as a GitHub Actions secret and `TELEGRAM_CHAT_ID` as a repository variable; users must first open the bot or add it to an authorized group. These values are not present in this repository. Fork pull requests never receive the secret. The workflow has only `contents: read` permissions.
+
+The notification is HTML-formatted with dynamic values escaped and includes no logs. You can inspect the formatter without credentials:
+
+```bash
+CI_JOB_STATUS=failure GITHUB_REPOSITORY=demo/project GITHUB_REF_NAME='feature/<test>' GITHUB_SHA=0123456789abcdef GITHUB_SERVER_URL=https://github.com GITHUB_RUN_ID=123 TELEGRAM_SEND_ENABLED=false ./gradlew -q notifyTelegram
+```
+
+This prints a dry-run marker and omits the message body. The CI notifier's formatter and send mode are covered by credential-free tests; no actual chat is contacted by local tests. Do not use `pull_request_target` to run untrusted code with Telegram secrets.
+
 Dry-run webhook with synthetic test data:
 
 ```bash
@@ -49,7 +61,7 @@ curl -i -X POST http://localhost:8080/telegram/webhook \
   -d '{"message":{"message_id":1,"chat":{"id":12345,"type":"private"},"from":{"id":12345},"text":"/start"}}'
 ```
 
-The `demo` profile supplies a public, non-secret local placeholder for the webhook header. The server logs that a dry-run reply would be sent (without logging its content) and returns HTTP 200. Try `/help`, `/status`, `/consent`, and `/ask Please summarize this sample issue`. Send `/start` before `/consent`. Consent exists only in memory and resets on restart. The `/ask` input is not sent anywhere unless an Anthropic key is separately configured. Without a configured webhook secret (or the explicit demo profile), the webhook returns HTTP 503.
+The `demo` profile supplies a public, non-secret local placeholder for the webhook header. The server logs only a dry-run marker without the message or destination, and returns HTTP 200. Try `/help`, `/status`, `/consent`, and `/ask Please summarize this sample issue`. Send `/start` before `/consent`. Consent exists only in memory and resets on restart. The `/ask` input is not sent anywhere unless an Anthropic key is separately configured. Without a configured webhook secret (or the explicit demo profile), the webhook returns HTTP 503.
 
 Open `http://localhost:8080/` to see a Mini App shell. A normal browser does not provide Telegram-signed `initData`; the session endpoint rejects it unless a real, fresh launch payload and `TELEGRAM_BOT_TOKEN` are supplied. No credentials are provided here. The UI sends raw `initData` to the backend, never treats `initDataUnsafe` as proof of identity, and displays only a minimal identity claim.
 

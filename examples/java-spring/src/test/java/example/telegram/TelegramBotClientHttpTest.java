@@ -59,6 +59,22 @@ class TelegramBotClientHttpTest {
     }
 
     @Test
+    void sendsHtmlParseModeOnlyForHtmlMessages() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        startServer(exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            writeResponse(exchange, 200, "{\"ok\":true,\"result\":{}}");
+        });
+
+        client("synthetic-token", Duration.ofSeconds(2))
+                .sendHtmlOrLog("12345", "<b>CI Failure</b>");
+
+        JsonNode sent = mapper.readTree(requestBody.get());
+        assertEquals("HTML", sent.path("parse_mode").asText());
+        assertEquals("<b>CI Failure</b>", sent.path("text").asText());
+    }
+
+    @Test
     void doesNotExposeTokenOrResponseBodyOnHttpFailure() {
         startServer(exchange -> writeResponse(exchange, 429, "synthetic private response body"));
 
