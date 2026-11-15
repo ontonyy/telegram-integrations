@@ -15,6 +15,7 @@ Start with Step 1 and continue in order. Each lesson gives you a concept, a code
 | [5. Connect business and operations systems](05-connect-business-systems.md) | Webhooks, filters, acknowledgements, CRM, CI and reliable delivery | Sales, incidents, project delivery | J06, J08, J09, J14, J16 |
 | [6. Handle files and AI deliberately](06-files-and-ai.md) | Consent, file boundaries, direct-to-bot AI, data policy | Customer self-service and document workflows | J10, J11 |
 | [7. Understand user clients and coding-agent bridges](07-tdlib-and-agents.md) | TDLib sessions, account access, agent isolation | A real user-client requirement or remote development pilot | J12, J13 |
+| [8. Run customer support through Chatwoot](08-chatwoot-support.md) | Standard Telegram bot vs Business bot, operator handoff, stored history, rights and reply window | A team needs a shared support inbox | J05, J17 |
 
 ## How to study each step
 
@@ -38,7 +39,7 @@ The Java examples are implemented and locally testable with synthetic payloads, 
 
 ## Reference catalogs
 
-- [Completed issue guides](../tasks/completed-issues/README.md) — what each J01–J16 issue delivered.
+- [Completed issue guides](../tasks/completed-issues/README.md) — what each J01–J17 issue delivered.
 - [Capability map](../02-research/capability-map.md) — comparison of Telegram integration surfaces.
 - [Implementation landscape](../02-research/implementation-landscape.md) — products and agent bridges, with evidence boundaries.
 - [Java/Spring example](../examples/java-spring/README.md) and [TDLib example](../examples/tdlib-java/README.md) — run and configuration instructions.

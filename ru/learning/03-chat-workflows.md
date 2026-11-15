@@ -21,8 +21,8 @@ flowchart TD
 ## Прочитать и посмотреть
 
 1. Изучите [исследование групп и тем](../02-research/groups-and-topics.md) и [руководство по поддержке](../02-research/support.md).
-2. Сравните [`GroupVoteService`](../../examples/java-spring/src/main/java/example/telegram/GroupVoteService.java), [`BusinessSupportService`](../../examples/java-spring/src/main/java/example/telegram/BusinessSupportService.java) и [`InternalRequestService`](../../examples/java-spring/src/main/java/example/telegram/InternalRequestService.java).
-3. Прочитайте пояснения [J04](../../tasks/completed-issues/J04.md), [J05](../../tasks/completed-issues/J05.md) и [J15](../../tasks/completed-issues/J15.md).
+2. Сравните [`GroupVoteService`](../../examples/java-spring/src/main/java/example/telegram/GroupVoteService.java), [`BusinessSupportService`](../../examples/java-spring/src/main/java/example/telegram/BusinessSupportService.java), [`InternalRequestService`](../../examples/java-spring/src/main/java/example/telegram/InternalRequestService.java) и [урок о поддержке через Chatwoot](08-chatwoot-support.md).
+3. Прочитайте пояснения [J04](../../tasks/completed-issues/J04.md), [J05](../../tasks/completed-issues/J05.md), [J15](../../tasks/completed-issues/J15.md) и [J17](../../tasks/completed-issues/J17.md).
 
 ## Пример применения
 
@@ -32,4 +32,4 @@ flowchart TD
 
 Для каждой функции бота ответьте: получит ли он update, кто имеет право изменить состояние и что остановит повторное действие по устаревшей или нажатой повторно кнопке?
 
-**Связанные задачи:** J04/J05/J15. В примерах синтетические роли и in-memory состояние; компания, справочник сотрудников и helpdesk не подключались.
+**Связанные задачи:** J04/J05/J15/J17. В примерах синтетические роли и in-memory состояние; компания, справочник сотрудников и helpdesk не подключались.

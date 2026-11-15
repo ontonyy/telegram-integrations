@@ -50,6 +50,8 @@ The dated ecosystem research is indexed in [02-research/README.md](02-research/R
 
 A Java 25 / Spring Boot sample is available in [examples/java-spring](examples/java-spring/README.md): Bot API webhook and Mini App validation, a durable notification outbox, mock-backed Telegram Business support, consent-gated HubSpot contact capture, private employee requests with manager approvals, and optional Claude API flow with disclosure and per-question confirmation. The separate [optional TDLib Java example](examples/tdlib-java/README.md) demonstrates a fake-tested authorization-state flow and an opt-in native/JNI adapter for an account you control. No credentials are included; neither example connects an account by default. See [tasks/1.md](tasks/1.md) for scope and verification boundaries.
 
+For shared human support without a custom Telegram bot service, [Chatwoot's built-in Telegram inbox](https://www.chatwoot.com/hc/user-guide/articles/1677838569-how-to-setup-a-telegram-channel) supports the standard Bot API and documented Business-mode bots. The [J17 lesson](learning/08-chatwoot-support.md) explains where Chatwoot ends and an optional Java handoff seam begins; it does not claim a live connection.
+
 For issue-by-issue implementation details, see the [English completion guides](tasks/completed-issues/README.md) and [Russian reader copies](ru/tasks/completed-issues/README.md). Use them alongside the concept-first learning path.
 
 ## Project-specific opportunities

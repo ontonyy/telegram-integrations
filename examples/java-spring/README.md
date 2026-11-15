@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This Java 25 / Spring Boot app contains eleven patterns:
+This Java 25 / Spring Boot app contains twelve patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -15,8 +15,15 @@ This Java 25 / Spring Boot app contains eleven patterns:
 9. Consent-gated one-to-one sales lead capture: user-entered fields are upserted into HubSpot by email, assigned to a configured HubSpot owner, and routed to a manager chat with only the CRM contact reference.
 10. A private internal request lifecycle with a server-configured employee/manager directory, request status, two-step approval callbacks, stale-action guards, and a minimal UTC audit trail.
 11. A file-backed H2 notification outbox with stable event IDs, leased worker claims, bounded retries, Telegram `retry_after` handling, expiry, and terminal-row retention.
+12. A mock-friendly Chatwoot support handoff choreography seam: synthetic conversation assignment, allowlisted assigned-operator replies, and a recording fake. Chatwoot's built-in Telegram channel is the actual Telegram integration; this Java seam has no Chatwoot/Telegram HTTP client, webhook endpoint, or durable store and is not needed when agents work directly in Chatwoot.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
+
+### Chatwoot Telegram customer support
+
+For a normal support team, Chatwoot's built-in [Telegram inbox](https://www.chatwoot.com/hc/user-guide/articles/1677838569-how-to-setup-a-telegram-channel) owns the Telegram webhook, customer/contact and conversation history, agent assignment/UI, and replies. The optional [J17 lesson](../../learning/08-chatwoot-support.md) compares the standard bot identity with Telegram Business sender identity, rights, the Business 24-hour reply window, and Chatwoot's stored data. Chatwoot's source stores Telegram message content and attachment records; its bot token is encrypted only when that installation has encryption configured.
+
+`ChatwootSupportHandoff` is a local application-side example of routing a synthetic conversation and allowing the assigned operator to request a reply via a fakeable port. It does not implement Chatwoot's channel, make HTTP calls, expose an endpoint, or prove live Chatwoot behavior. The test exercises successful assignment/reply ordering and rejects unassigned or unauthorized attempts. Any separately built Chatwoot API connection should source `CHATWOOT_BASE_URL`, `CHATWOOT_ACCOUNT_ID`, `CHATWOOT_API_ACCESS_TOKEN`, and an operator allowlist from the environment or a secret manager; none is configured or used by this demo. Operator authentication, verified webhook intake, durable state, Chatwoot API identity, retention and privacy review are outside this teaching seam.
 
 The outbox stores its minimum delivery payload (destination and message text) in a local H2 file under the operating system's temporary directory so pending messages survive restarts. Sending and the scheduled worker are both disabled by default. The database file is still sensitive local data; use synthetic content and remove the file when finished. The H2 sample is a learning adapter, not production database hardening.
 

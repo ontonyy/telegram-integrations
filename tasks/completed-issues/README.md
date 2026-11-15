@@ -2,7 +2,7 @@
 
 **Checked:** 2026-11-15. These notes explain what each closed issue delivered, how the example works, and where the pattern fits in a real project. They describe repository code and its local verification; they do not imply that a live Telegram, CRM, or vendor account was connected.
 
-For a learning sequence organized by concept (rather than issue number), start with the [Telegram integrations learning path](../../learning/README.md). The pages below are implementation references that complement its seven lessons.
+For a learning sequence organized by concept (rather than issue number), start with the [Telegram integrations learning path](../../learning/README.md). The pages below are implementation references that complement its eight lessons.
 
 Russian versions are in [`ru/tasks/completed-issues`](../../ru/tasks/completed-issues/README.md).
 
@@ -24,5 +24,6 @@ Russian versions are in [`ru/tasks/completed-issues`](../../ru/tasks/completed-i
 | J14 | Consent-based HubSpot lead capture | [J14](J14.md) |
 | J15 | Private employee request and approval | [J15](J15.md) |
 | J16 | Durable notification outbox, retry policy, and expiry | [J16](J16.md) |
+| J17 | Chatwoot Telegram customer-support handoff walkthrough and mock seam | [J17](J17.md) |
 
-Start with [the Java/Spring README](../../examples/java-spring/README.md) for commands, configuration names, and the shared demo boundaries. J13 is a research decision, not a runnable bridge. J12 is isolated and is not part of the normal Spring startup.
+Start with [the Java/Spring README](../../examples/java-spring/README.md) for commands, configuration names, and the shared demo boundaries. J13 is a research decision, not a runnable bridge. J12 is isolated and is not part of the normal Spring startup. J17's built-in Chatwoot Telegram channel is separate from its fake-backed Java choreography seam.

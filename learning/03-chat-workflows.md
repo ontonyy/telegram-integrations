@@ -21,8 +21,8 @@ Private bot chats, groups, Business-connected chats, and channels have different
 ## Read and inspect
 
 1. Read the repository's [group and topic research](../02-research/groups-and-topics.md) and [support guide](../02-research/support.md).
-2. Compare [`GroupVoteService`](../examples/java-spring/src/main/java/example/telegram/GroupVoteService.java), [`BusinessSupportService`](../examples/java-spring/src/main/java/example/telegram/BusinessSupportService.java), and [`InternalRequestService`](../examples/java-spring/src/main/java/example/telegram/InternalRequestService.java).
-3. Read issue notes [J04](../tasks/completed-issues/J04.md), [J05](../tasks/completed-issues/J05.md), and [J15](../tasks/completed-issues/J15.md).
+2. Compare [`GroupVoteService`](../examples/java-spring/src/main/java/example/telegram/GroupVoteService.java), [`BusinessSupportService`](../examples/java-spring/src/main/java/example/telegram/BusinessSupportService.java), [`InternalRequestService`](../examples/java-spring/src/main/java/example/telegram/InternalRequestService.java), and the [Chatwoot support lesson](08-chatwoot-support.md).
+3. Read issue notes [J04](../tasks/completed-issues/J04.md), [J05](../tasks/completed-issues/J05.md), [J15](../tasks/completed-issues/J15.md), and [J17](../tasks/completed-issues/J17.md).
 
 ## Apply it
 
@@ -32,4 +32,4 @@ For a group vote, make the action explicit with a callback and validate the acto
 
 For each proposed bot feature, answer: can the bot see this update, which actor is allowed to cause this state change, and what prevents a stale or repeated button press from repeating the action?
 
-**Issue trail:** J04/J05/J15. These samples use synthetic identities and in-memory state; they do not connect a company account, employee directory, or helpdesk.
+**Issue trail:** J04/J05/J15/J17. These samples use synthetic identities and in-memory state; they do not connect a company account, employee directory, or helpdesk.
