@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public class TelegramBotClient {
+public class TelegramBotClient implements BusinessMessageSender {
     private final String token;
     private final boolean sendEnabled;
     private final String apiBaseUrl;
@@ -36,6 +36,18 @@ public class TelegramBotClient {
 
     public void sendOrLog(String chatId, String text) {
         Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chat_id", chatId);
+        payload.put("text", text);
+        sendMethodOrLog("sendMessage", payload);
+    }
+
+    @Override
+    public void sendBusinessMessageOrLog(String connectionId, String chatId, String text) {
+        if (connectionId == null || connectionId.isBlank()) {
+            throw new IllegalArgumentException("Business connection ID is required");
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("business_connection_id", connectionId);
         payload.put("chat_id", chatId);
         payload.put("text", text);
         sendMethodOrLog("sendMessage", payload);

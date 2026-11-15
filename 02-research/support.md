@@ -1,6 +1,6 @@
 # Customer support integrations
 
-**Checked:** 2026-11-14.
+**Checked:** Telegram Business/API rules 2026-11-15; connector/product details 2026-11-14.
 
 ## The support journey
 
@@ -30,12 +30,14 @@ Customer sends a message → channel connector creates or updates a conversation
 5. If an AI assistant drafts a response, show the draft to the agent and require a human send action until quality and authorization are established.
 6. Close, export, and delete records under a documented retention policy.
 
+The repository's [Java Business support example](../examples/java-spring/README.md#telegram-business-support-intake-and-operator-handoff) is a mock-backed reference for connection updates, scoped private-chat events, minimal ticket metadata, operator takeover and a guarded Business reply. It deliberately has no live Business account, operator UI/helpdesk or persisted transcript.
+
 ## Limits and cost drivers
 
 Bot replies cannot initiate arbitrary private conversations: the user must first contact the bot. A normal bot sees only its own conversation scope. Business bots have recipient filters, rights, and time constraints. Helpdesk cloud cost is generally seats plus AI/usage; self-hosting replaces license cost with hosting and operational work. Current product snapshots are in the [catalog](product-catalog.md).
 
 ## Evidence and references
 
-Telegram confirms bot update and Business connection scopes: [Bot FAQ](https://core.telegram.org/bots/faq), [Business connected bots](https://core.telegram.org/api/bots/connected-business-bots), [Business rights](https://core.telegram.org/constructor/businessBotRights). Product behavior: [Chatwoot Telegram](https://www.chatwoot.com/features/telegram-integration), [Chatwoot channel setup](https://app.chatwoot.com/hc/user-guide/articles/1677492191-adding-inboxes), [AgentBot handoff](https://app.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots), [Intercom Telegram announcement](https://www.intercom.com/changes/en/152537-telegram-is-now-a-supported-channel), [Intercom setup](https://www.intercom.com/help/es/articles/15690842-configuracion-de-telegram-en-intercom), [Kommo setup](https://support.kommo.com/docs/en/connect-telegram-to-kommo).
+Telegram confirms bot update and Business connection scopes: [Bot FAQ](https://core.telegram.org/bots/faq), [Business connected bots](https://core.telegram.org/api/bots/connected-business-bots), [Business rights](https://core.telegram.org/constructor/businessBotRights), [Bot API BusinessConnection and updates](https://core.telegram.org/bots/api#businessconnection), and [Bot Developer Terms §5.4](https://telegram.org/tos/bot-developers). Product behavior: [Chatwoot Telegram](https://www.chatwoot.com/features/telegram-integration), [Chatwoot channel setup](https://app.chatwoot.com/hc/user-guide/articles/1677492191-adding-inboxes), [AgentBot handoff](https://app.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots), [Intercom Telegram announcement](https://www.intercom.com/changes/en/152537-telegram-is-now-a-supported-channel), [Intercom setup](https://www.intercom.com/help/es/articles/15690842-configuracion-de-telegram-en-intercom), [Kommo setup](https://support.kommo.com/docs/en/connect-telegram-to-kommo). Business API and terms rechecked 2026-11-15; product details were last checked 2026-11-14.
 
 **Documented:** channel setup and named product features linked above. **Proposed:** joining tickets to CRM identity, routing rules, retention, and agent approval flow; verify against the organization's chosen configuration.

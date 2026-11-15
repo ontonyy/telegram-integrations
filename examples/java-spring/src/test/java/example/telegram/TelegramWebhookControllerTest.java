@@ -19,17 +19,20 @@ class TelegramWebhookControllerTest {
     private static final String SECRET = "synthetic-webhook-secret";
     private final ObjectMapper mapper = new ObjectMapper();
     private RecordingTelegramBotClient telegram;
+    private BusinessSupportService businessSupport;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         telegram = new RecordingTelegramBotClient();
+        businessSupport = new BusinessSupportService(telegram, "operator-1"::equals);
         BotReplyService replies = new BotReplyService(
                 telegram, new ClaudeClient("", "", mapper, request -> new TransportResponse(200, "{}")));
         TelegramWebhookController controller = new TelegramWebhookController(
                 SECRET, replies, new InMemoryTelegramUpdateRegistry(),
                 new GroupVoteService((chatId, userId) -> "10".equals(userId)),
-                new GrafanaAlertService(replies, "", ""), noFileIntake());
+                new GrafanaAlertService(replies, "", ""), noFileIntake(),
+                businessSupport);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -70,7 +73,8 @@ class TelegramWebhookControllerTest {
         TelegramWebhookController controller = new TelegramWebhookController(
                 "", replies, new InMemoryTelegramUpdateRegistry(),
                 new GroupVoteService((chatId, userId) -> false),
-                new GrafanaAlertService(replies, "", ""), noFileIntake());
+                new GrafanaAlertService(replies, "", ""), noFileIntake(),
+                new BusinessSupportService(telegram, "operator-1"::equals));
         MockMvc unconfigured = MockMvcBuilders.standaloneSetup(controller).build();
 
         unconfigured.perform(post("/telegram/webhook")
@@ -140,6 +144,36 @@ class TelegramWebhookControllerTest {
         assertEquals(0, telegram.votePromptCalls);
     }
 
+    @Test
+    void routesAndDeduplicatesBusinessConnectionAndCustomerUpdates() throws Exception {
+        send(mapper.writeValueAsString(Map.of(
+                "update_id", 401,
+                "business_connection", Map.of(
+                        "id", "business-connection-demo",
+                        "user", Map.of("id", 900),
+                        "is_enabled", true,
+                        "rights", Map.of("can_reply", true)))), SECRET)
+                .andExpect(status().isOk());
+        String inbound = mapper.writeValueAsString(Map.of(
+                "update_id", 402,
+                "business_message", Map.of(
+                        "business_connection_id", "business-connection-demo",
+                        "message_id", 700,
+                        "date", java.time.Instant.now().getEpochSecond(),
+                        "chat", Map.of("id", 555, "type", "private"),
+                        "from", Map.of("id", 42),
+                        "text", "synthetic business customer text")));
+
+        send(inbound, SECRET).andExpect(status().isOk());
+        send(inbound, SECRET).andExpect(status().isOk());
+
+        assertEquals(1, businessSupport.tickets().size());
+        assertEquals("OPEN", businessSupport.tickets().getFirst().status());
+        assertEquals(0, telegram.businessSendCalls);
+        assertTrue(!businessSupport.tickets().getFirst().toString()
+                .contains("synthetic business customer text"));
+    }
+
     private org.springframework.test.web.servlet.ResultActions send(String update, String secret) throws Exception {
         return mockMvc.perform(post("/telegram/webhook")
                 .header("X-Telegram-Bot-Api-Secret-Token", secret)
@@ -198,8 +232,12 @@ class TelegramWebhookControllerTest {
         private int votePromptCalls;
         private int voteEdits;
         private int callbackAnswers;
+        private int businessSendCalls;
         private boolean failNextSend;
         private String lastSentMessage;
+        private String lastBusinessConnectionId;
+        private String lastBusinessChatId;
+        private String lastBusinessMessage;
         private String lastVoteMessage;
         private String lastCallbackAnswer;
         private GroupVoteService.VotePrompt votePrompt;
@@ -216,6 +254,18 @@ class TelegramWebhookControllerTest {
             if (failNextSend) {
                 failNextSend = false;
                 throw new IllegalStateException("synthetic delivery failure");
+            }
+        }
+
+        @Override
+        public void sendBusinessMessageOrLog(String connectionId, String chatId, String text) {
+            businessSendCalls++;
+            lastBusinessConnectionId = connectionId;
+            lastBusinessChatId = chatId;
+            lastBusinessMessage = text;
+            if (failNextSend) {
+                failNextSend = false;
+                throw new IllegalStateException("synthetic Business delivery failure");
             }
         }
 

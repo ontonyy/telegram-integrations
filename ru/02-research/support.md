@@ -1,6 +1,6 @@
 # Интеграции для поддержки клиентов
 
-**Проверено:** 14 ноября 2026 года.
+**Проверено:** правила Telegram Business/API — 15 ноября 2026 года; коннекторы и продукты — 14 ноября 2026 года.
 
 ## Путь обращения
 
@@ -30,12 +30,14 @@
 5. Если AI готовит ответ, сначала показывайте черновик оператору и требуйте его отправки человеком. Перед передачей диалога модели проверьте согласие и условия.
 6. Определите срок хранения, экспорт и удаление данных.
 
+[Пример Java для Telegram Business](../../examples/java-spring/README.md#telegram-business-поддержка-и-передача-оператору) моделирует обновления подключения и личного чата, минимальные метаданные заявки, передачу оператору и проверку условий ответа. В нём нет настоящего Business-аккаунта, интерфейса оператора/helpdesk или сохранённого transcript.
+
 ## Ограничения и затраты
 
 Бот не может сам начать произвольный личный диалог: пользователь должен сначала написать ему. Обычный бот видит только доступную ему область. У Business-бота есть фильтры адресатов, права и временные ограничения. Облачный helpdesk обычно оплачивается по местам плюс AI/использование; self-hosted переносит расходы на хостинг и эксплуатацию. Тарифные снимки приведены в [каталоге продуктов](product-catalog.md).
 
 ## Подтверждение и источники
 
-Telegram описывает границы обновлений бота и Business: [FAQ ботов](https://core.telegram.org/bots/faq), [подключённые Business-боты](https://core.telegram.org/api/bots/connected-business-bots), [права Business](https://core.telegram.org/constructor/businessBotRights). Возможности продуктов: [Chatwoot Telegram](https://www.chatwoot.com/features/telegram-integration), [настройка канала Chatwoot](https://app.chatwoot.com/hc/user-guide/articles/1677492191-adding-inboxes), [передача AgentBot](https://app.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots), [анонс Intercom](https://www.intercom.com/changes/en/152537-telegram-is-now-a-supported-channel), [настройка Intercom](https://www.intercom.com/help/es/articles/15690842-configuracion-de-telegram-en-intercom), [настройка Kommo](https://support.kommo.com/docs/en/connect-telegram-to-kommo).
+Telegram описывает границы обновлений бота и Business: [FAQ ботов](https://core.telegram.org/bots/faq), [подключённые Business-боты](https://core.telegram.org/api/bots/connected-business-bots), [права Business](https://core.telegram.org/constructor/businessBotRights), [BusinessConnection и обновления Bot API](https://core.telegram.org/bots/api#businessconnection) и [условия Bot Developer §5.4](https://telegram.org/tos/bot-developers). Возможности продуктов: [Chatwoot Telegram](https://www.chatwoot.com/features/telegram-integration), [настройка канала Chatwoot](https://app.chatwoot.com/hc/user-guide/articles/1677492191-adding-inboxes), [передача AgentBot](https://app.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots), [анонс Intercom](https://www.intercom.com/changes/en/152537-telegram-is-now-a-supported-channel), [настройка Intercom](https://www.intercom.com/help/es/articles/15690842-configuracion-de-telegram-en-intercom), [настройка Kommo](https://support.kommo.com/docs/en/connect-telegram-to-kommo). Business API и условия перепроверены 15.11.2026; сведения о продуктах проверялись 14.11.2026.
 
 **Документировано:** настройки каналов и функции продуктов по ссылкам. **Предложено:** объединение тикета с клиентом в CRM, правила маршрутизации, хранение и подтверждение отправки оператором — всё это нужно сверить с выбранной конфигурацией.

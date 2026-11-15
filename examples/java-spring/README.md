@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This small Java 25 / Spring Boot app contains seven patterns:
+This Java 25 / Spring Boot app contains eight patterns:
 
 1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -11,8 +11,9 @@ This small Java 25 / Spring Boot app contains seven patterns:
 5. A signed Grafana Alerting webhook with an allowlisted, application-only acknowledgement button.
 6. A consent-based Bot API text-file intake that downloads to a private temporary directory and deletes immediately.
 7. Optional Claude Messages API flow for a directly submitted private-chat question, with disclosure, feature consent, and a separate confirmation for each exact prompt.
+8. Mock-backed Telegram Business support intake: connection rights, new/edit/delete updates, a minimal synthetic ticket, an allowlisted operator takeover, and a reply path that checks connection status, `can_reply`, and the 24-hour window before including `business_connection_id`.
 
-The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, Business-chat ingestion, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
+The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
 
 ## Prerequisites
 
@@ -110,6 +111,16 @@ The `demo` profile supplies a public, non-secret local placeholder for the webho
 Open `http://localhost:8080/` to inspect the Mini App form. A normal browser does not provide Telegram-signed `initData`; submit/status endpoints reject it unless a fresh launch payload and `TELEGRAM_BOT_TOKEN` are supplied. No credentials are provided here, so authenticated submission is not available in this local demo by default. The form sends raw `initData` in POST bodies, never treats `initDataUnsafe` or a browser-supplied Telegram ID as proof of identity, and displays a synthetic request status. Use HTTPS when deploying it.
 
 The backend exposes `POST /api/miniapp/requests` to validate launch data and create a request, then `POST /api/miniapp/requests/status` to retrieve it. The server derives the owner ID from the signed `user` field; the application policy allows a verified user to create their own request and lets only that owner read it. A different verified user receives 404. The store holds at most 1,000 records in process memory, is lost on restart and is not shared between instances. Replace it with durable storage and re-check authorization at every record operation before deployment. The sample does not post results into Telegram, so it needs no chat-send rights. If launched from a group, any `chat_instance` is context only: this example does not use it to authorize access or expose group messages. Host a deployed Mini App only behind HTTPS and configure Telegram's launch URL in a controlled bot setup; no public URL or bot is configured here.
+
+## Telegram Business support intake and operator handoff
+
+The same `/telegram/webhook` accepts Telegram's `business_connection`, `business_message`, `edited_business_message`, and `deleted_business_messages` update shapes after the normal webhook-secret and update-ID checks. Configure Telegram's `allowed_updates` to include these update types when registering a real webhook. The business account owner must explicitly connect a Business-enabled bot and choose the private-chat recipients and rights in Telegram. The selected-recipient controls belong to Telegram; this sample does not treat the connection as group access or an unrestricted account archive. The adapter uses only `can_reply`; it does not require message-read, deletion, profile-editing, or other Business rights.
+
+The adapter records a synthetic ticket reference, the Telegram conversation/message reference, status, queue/operator assignment, and message change/deletion IDs. It deliberately discards message text and does not copy a transcript. New/edit/delete update delivery is de-duplicated by the existing update registry. A connected account update supplies `is_enabled` and rights; `can_reply` is true only for private conversations with an incoming message during Telegram's last-24-hour window. The sample's operator reply method checks the allowlisted operator, ticket assignment, active connection, `can_reply`, and the last inbound timestamp before calling `sendMessage` with both `business_connection_id` and the target `chat_id`. If a check fails, it returns a manual-reply instruction and does not call Telegram.
+
+Set `TELEGRAM_BUSINESS_OPERATOR_IDS` to comma-separated synthetic or approved operator IDs before using the authorization seam. The demo has no operator UI, helpdesk queue, persistent ticket store, or real Business account; tests call the handoff/reply service directly with a fake sender. A production operator interface must authenticate employees independently, enforce assignment at the action boundary, and use durable storage, idempotency, and a retention/deletion policy. Telegram user IDs submitted by a caller are not proof of an employee role.
+
+The Business path does not send customer data to AI or other third parties. Telegram's Bot Developer Terms require clear disclosure of retention and purpose and prohibit third-party disclosure of Business messages/files without user authorization. No Business account, real customer chat, support product, or Telegram message was used. The Bot API Business update model, connection rights and `sendMessage.business_connection_id` were checked against [Telegram's Bot API](https://core.telegram.org/bots/api#businessconnection), [connected Business bots](https://core.telegram.org/api/bots/connected-business-bots), and [Bot Developer Terms](https://telegram.org/tos/bot-developers) on 2026-11-15.
 
 ## Optional credentials (do not use for this local demo)
 

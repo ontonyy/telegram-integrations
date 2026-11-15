@@ -77,6 +77,23 @@ class TelegramBotClientHttpTest {
     }
 
     @Test
+    void sendsBusinessReplyWithConnectionIdAndChatReference() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        startServer(exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            writeResponse(exchange, 200, "{\"ok\":true,\"result\":{}}");
+        });
+
+        client("synthetic-token", Duration.ofSeconds(2))
+                .sendBusinessMessageOrLog("business-connection-demo", "555", "Reviewed response");
+
+        JsonNode sent = mapper.readTree(requestBody.get());
+        assertEquals("business-connection-demo", sent.path("business_connection_id").asText());
+        assertEquals("555", sent.path("chat_id").asText());
+        assertEquals("Reviewed response", sent.path("text").asText());
+    }
+
+    @Test
     void sendsVoteKeyboardAndCallbackRequestsToExpectedBotApiMethods() throws Exception {
         List<String> paths = new ArrayList<>();
         List<String> bodies = new ArrayList<>();

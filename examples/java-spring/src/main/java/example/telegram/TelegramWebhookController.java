@@ -20,6 +20,7 @@ public class TelegramWebhookController {
     private final GroupVoteService groupVoteService;
     private final GrafanaAlertService grafanaAlertService;
     private final FileIntakeService fileIntakeService;
+    private final BusinessSupportService businessSupportService;
 
     public TelegramWebhookController(
             @Value("${telegram.webhook-secret:}") String webhookSecret,
@@ -27,13 +28,15 @@ public class TelegramWebhookController {
             TelegramUpdateRegistry updateRegistry,
             GroupVoteService groupVoteService,
             GrafanaAlertService grafanaAlertService,
-            FileIntakeService fileIntakeService) {
+            FileIntakeService fileIntakeService,
+            BusinessSupportService businessSupportService) {
         this.webhookSecret = webhookSecret;
         this.replyService = replyService;
         this.updateRegistry = updateRegistry;
         this.groupVoteService = groupVoteService;
         this.grafanaAlertService = grafanaAlertService;
         this.fileIntakeService = fileIntakeService;
+        this.businessSupportService = businessSupportService;
     }
 
     @PostMapping("/telegram/webhook")
@@ -55,6 +58,15 @@ public class TelegramWebhookController {
                 || !updateIdNode.canConvertToLong()
                 || updateIdNode.asLong() < 0) {
             return ResponseEntity.badRequest().build();
+        }
+
+        if (isBusinessUpdate(update)) {
+            try {
+                updateRegistry.processOnce(updateIdNode.asLong(), () -> businessSupportService.handleUpdate(update));
+            } catch (RuntimeException exception) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+            }
+            return ResponseEntity.ok().build();
         }
 
         JsonNode message = update.path("message");
@@ -180,5 +192,12 @@ public class TelegramWebhookController {
 
     private boolean isGroup(String chatType) {
         return "group".equals(chatType) || "supergroup".equals(chatType);
+    }
+
+    private boolean isBusinessUpdate(JsonNode update) {
+        return update.path("business_connection").isObject()
+                || update.path("business_message").isObject()
+                || update.path("edited_business_message").isObject()
+                || update.path("deleted_business_messages").isObject();
     }
 }
