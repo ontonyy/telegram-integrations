@@ -14,7 +14,8 @@ class ExternalCallBoundaryTest {
             calls.incrementAndGet();
             return new TransportResponse(200, "{}");
         };
-        TelegramBotClient telegram = new TelegramBotClient("", false, new ObjectMapper(), transport);
+        TelegramBotClient telegram = new TelegramBotClient(
+                "", false, "https://api.telegram.org", java.time.Duration.ofSeconds(1), new ObjectMapper(), transport);
 
         telegram.sendOrLog("12345", "synthetic test message");
 

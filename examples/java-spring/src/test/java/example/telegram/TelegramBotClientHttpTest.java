@@ -1,0 +1,126 @@
+package example.telegram;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+class TelegramBotClientHttpTest {
+    private final ObjectMapper mapper = new ObjectMapper();
+    private HttpServer server;
+    private ExecutorService serverExecutor;
+
+    @AfterEach
+    void stopServer() {
+        if (server != null) {
+            server.stop(0);
+        }
+        if (serverExecutor != null) {
+            serverExecutor.shutdownNow();
+        }
+    }
+
+    @Test
+    void sendsExpectedJsonToLocalMockServer() throws Exception {
+        AtomicReference<String> method = new AtomicReference<>();
+        AtomicReference<String> path = new AtomicReference<>();
+        AtomicReference<String> contentType = new AtomicReference<>();
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        startServer(exchange -> {
+            method.set(exchange.getRequestMethod());
+            path.set(exchange.getRequestURI().getPath());
+            contentType.set(exchange.getRequestHeaders().getFirst("Content-Type"));
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            writeResponse(exchange, 200, "{\"ok\":true,\"result\":{}}");
+        });
+
+        client("synthetic-token", Duration.ofSeconds(2)).sendOrLog("12345", "synthetic build passed");
+
+        assertEquals("POST", method.get());
+        assertEquals("/botsynthetic-token/sendMessage", path.get());
+        assertTrue(contentType.get().startsWith("application/json"));
+        JsonNode sent = mapper.readTree(requestBody.get());
+        assertEquals("12345", sent.path("chat_id").asText());
+        assertEquals("synthetic build passed", sent.path("text").asText());
+    }
+
+    @Test
+    void doesNotExposeTokenOrResponseBodyOnHttpFailure() {
+        startServer(exchange -> writeResponse(exchange, 429, "synthetic private response body"));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> client("synthetic-token", Duration.ofSeconds(2))
+                        .sendOrLog("12345", "synthetic private message"));
+
+        assertFalse(failure.toString().contains("synthetic-token"));
+        assertFalse(failure.toString().contains("synthetic private response body"));
+        assertNotNull(failure.getCause());
+        assertTrue(failure.getCause().getMessage().contains("429"));
+        assertFalse(failure.getCause().getMessage().contains("synthetic private response body"));
+    }
+
+    @Test
+    void timesOutAgainstDelayedLocalMockServerWithoutLeakingRequestData() {
+        startServer(exchange -> {
+            try {
+                Thread.sleep(500);
+                writeResponse(exchange, 200, "{\"ok\":true}");
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            } catch (IOException ignored) {
+                // The client closes the local connection after its configured timeout.
+            }
+        });
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> client("synthetic-token", Duration.ofMillis(50))
+                        .sendOrLog("12345", "synthetic private message"));
+
+        assertEquals("Telegram send failed", failure.getMessage());
+        assertFalse(failure.toString().contains("synthetic-token"));
+        assertFalse(failure.toString().contains("synthetic private message"));
+    }
+
+    private TelegramBotClient client(String token, Duration timeout) {
+        return new TelegramBotClient(token, true, serverBaseUrl(), timeout, mapper, new JdkHttpTransport());
+    }
+
+    private void startServer(com.sun.net.httpserver.HttpHandler handler) {
+        try {
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not start local HTTP mock", exception);
+        }
+        serverExecutor = Executors.newSingleThreadExecutor();
+        server.setExecutor(serverExecutor);
+        server.createContext("/", handler);
+        server.start();
+    }
+
+    private String serverBaseUrl() {
+        return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    private void writeResponse(com.sun.net.httpserver.HttpExchange exchange, int status, String body)
+            throws IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(status, bytes.length);
+        exchange.getResponseBody().write(bytes);
+        exchange.close();
+    }
+}

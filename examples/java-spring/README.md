@@ -38,6 +38,8 @@ bash scripts/credential-scan.sh
 
 This is a focused pattern scan, not a guarantee that every possible secret format is detected. Review any new credential type before adding it to the example. Keep raw update captures outside the repository; local files under `telegram-updates/` and files ending in `.telegram-update.json` are ignored.
 
+The direct sender uses Java's `HttpClient`. Tests point its API base URL at an in-process HTTP server; the default URL remains Telegram's official endpoint. The sample does not retry sends automatically: for HTTP 429, follow Bot API `retry_after` guidance with bounded backoff in a production queue, because blindly repeating a request can duplicate a message. A Bot API bot is a separate account and cannot search arbitrary account history; a user must open the bot or add it to an authorized chat before the bot can message there.
+
 Dry-run webhook with synthetic test data:
 
 ```bash

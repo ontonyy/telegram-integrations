@@ -21,3 +21,11 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['--add-modules', 'jdk.httpserver']
+}
+
+tasks.withType(Test).configureEach {
+    jvmArgs '--add-modules=jdk.httpserver'
+}

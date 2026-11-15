@@ -12,16 +12,22 @@ import org.springframework.stereotype.Component;
 public class TelegramBotClient {
     private final String token;
     private final boolean sendEnabled;
+    private final String apiBaseUrl;
+    private final Duration requestTimeout;
     private final ObjectMapper mapper;
     private final HttpTransport transport;
 
     public TelegramBotClient(
             @Value("${telegram.bot-token:}") String token,
             @Value("${telegram.send-enabled:false}") boolean sendEnabled,
+            @Value("${telegram.api-base-url:https://api.telegram.org}") String apiBaseUrl,
+            @Value("${telegram.request-timeout:PT10S}") Duration requestTimeout,
             ObjectMapper mapper,
             HttpTransport transport) {
         this.token = token;
         this.sendEnabled = sendEnabled;
+        this.apiBaseUrl = apiBaseUrl;
+        this.requestTimeout = requestTimeout;
         this.mapper = mapper;
         this.transport = transport;
     }
@@ -37,8 +43,8 @@ public class TelegramBotClient {
         try {
             String body = mapper.writeValueAsString(Map.of("chat_id", chatId, "text", text));
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.telegram.org/bot" + token + "/sendMessage"))
-                    .timeout(Duration.ofSeconds(10))
+                    .uri(URI.create(apiBaseUrl.replaceAll("/+$", "") + "/bot" + token + "/sendMessage"))
+                    .timeout(requestTimeout)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
