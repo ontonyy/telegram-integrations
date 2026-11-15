@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'example.telegram'
+version = '0.1.0'
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+}
+
+repositories { mavenCentral() }
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
+}
+
+tasks.named('test') { useJUnitPlatform() }
+
+def tdlibJavaClasspath = providers.environmentVariable('TDLIB_JAVA_CLASSPATH')
+def tdlibNativeLibraryPath = providers.environmentVariable('TDLIB_NATIVE_LIBRARY_PATH')
+def tdlibClasses = layout.buildDirectory.dir('classes/java/tdlib')
+
+tasks.register('compileTdlibAdapter', JavaCompile) {
+    group = 'build'
+    description = 'Compile the optional adapter against locally built official TDLib Java classes.'
+    source = fileTree('src/tdlib/java') { include '**/*.java' }
+    classpath = sourceSets.main.output + files(tdlibJavaClasspath.orNull ?: [])
+    destinationDirectory = tdlibClasses
+    options.release = 25
+    dependsOn tasks.named('classes')
+    doFirst {
+        if (!tdlibJavaClasspath.isPresent()) {
+            throw new GradleException('Set TDLIB_JAVA_CLASSPATH to the official TDLib Java classes directory or jar.')
+        }
+    }
+}
+
+tasks.register('runTdlibDemo', JavaExec) {
+    group = 'application'
+    description = 'Run the optional official TDLib JNI authorization demo. It requires real user authorization.'
+    dependsOn tasks.named('compileTdlibAdapter')
+    classpath = sourceSets.main.runtimeClasspath + files(tdlibJavaClasspath.orNull ?: []) + files(tdlibClasses)
+    mainClass = 'example.telegram.tdlib.OfficialTdLibDemo'
+    doFirst {
+        if (!tdlibNativeLibraryPath.isPresent()) {
+            throw new GradleException('Set TDLIB_NATIVE_LIBRARY_PATH to the directory containing the official TDLib JNI library.')
+        }
+        systemProperty 'java.library.path', tdlibNativeLibraryPath.get()
+    }
+}

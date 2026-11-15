@@ -20,6 +20,7 @@
 - [Scenario catalog](scenario-catalog.md) — reusable end-to-end patterns and complexity.
 - [Technical notes](technical-notes.md) — Bot API, Telegram Business, Mini Apps, TDLib and Java.
 - [Runnable Java/Spring example](../examples/java-spring/README.md) — dry-run webhook, Mini App signature validation, optional consent-gated Claude API call.
+- [Optional TDLib Java account-client example](../examples/tdlib-java/README.md) — fake-tested authorization flow and isolated official JNI adapter; real account use is manual and separate from tests.
 
 ## How to read the findings
 

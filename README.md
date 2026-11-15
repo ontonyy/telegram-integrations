@@ -46,7 +46,7 @@ Design AI features to avoid ingesting Telegram-origin content by default. Before
 
 The dated ecosystem research is indexed in [02-research/README.md](02-research/README.md). It includes connector capabilities and limits, source-reviewed agent bridges and MCP readers, customer and internal workflows, groups/topics, AI access boundaries, and Telegram technical notes. Russian reader copies are indexed in [ru/README.md](ru/README.md).
 
-A small Java 25 / Spring Boot sample is available in [examples/java-spring](examples/java-spring/README.md): dry-run Bot API webhook, Mini App `initData` verification, and optional Claude API flow with disclosure, revocable consent, and one confirmation per submitted question. No credentials are included and outbound messages are disabled by default. The implemented file-intake and per-question AI consent flows are documented in the sample README; the remaining TDLib example is tracked in [tasks/1.md](tasks/1.md).
+A Java 25 / Spring Boot sample is available in [examples/java-spring](examples/java-spring/README.md): dry-run Bot API webhook, Mini App `initData` verification, and optional Claude API flow with disclosure, revocable consent, and one confirmation per submitted question. The separate [optional TDLib Java example](examples/tdlib-java/README.md) demonstrates a fake-tested authorization-state flow and an opt-in native/JNI adapter for an account you control. No credentials are included; neither example connects an account by default. See [tasks/1.md](tasks/1.md) for scope and verification boundaries.
 
 ## Project-specific opportunities
 
@@ -54,7 +54,7 @@ The [CVNoor project notes](projects/README.md) map Telegram ideas to candidate, 
 
 ## Telegram ecosystem research
 
-The dated research library covers product choices, scenario designs, access boundaries, pricing snapshots, and Java implementation notes. Start at [02-research/README.md](02-research/README.md). Findings are checked **2026-11-14**; prices and platform rules can change.
+The dated research library covers product choices, scenario designs, access boundaries, pricing snapshots, and Java implementation notes. Start at [02-research/README.md](02-research/README.md). The index and selected coding-agent sources were updated **2026-11-15**; each document carries its own source-check date. Prices and platform rules can change.
 
 ## Official references
 

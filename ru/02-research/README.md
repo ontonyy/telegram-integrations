@@ -20,6 +20,7 @@
 - [Каталог сценариев](scenario-catalog.md) — практические схемы и небольшие пилоты.
 - [Технические заметки](technical-notes.md) — Bot API, Business, Mini Apps, TDLib и Java.
 - [Пример Java/Spring Boot](../../examples/java-spring/README.md) — dry-run webhook, проверка Mini App и опциональный Claude API.
+- [Необязательный пример TDLib Java](../../examples/tdlib-java/README.md) — fake-тесты процесса авторизации и отдельный официальный JNI adapter; настоящий аккаунт используется только вручную и отдельно от тестов.
 
 ## Как читать выводы
 

@@ -20,6 +20,7 @@
 - [Каталог сценариев и пилотов](02-research/scenario-catalog.md)
 - [Технические заметки](02-research/technical-notes.md)
 - [Пример Java/Spring Boot](examples/java-spring/README.md) — русская инструкция; код и оригинал лежат в [англоязычном каталоге](../examples/java-spring/README.md)
+- [Необязательный пример TDLib Java](examples/tdlib-java/README.md) — JNI-клиент, fake-тесты и ручной запуск с отдельным пользовательским аккаунтом; исходник на английском в [каталоге проекта](../examples/tdlib-java/README.md)
 - [Возможности Telegram для CVNoor](projects/cvnoor/README.md), [приоритеты пилотов](projects/cvnoor/telegram-pilot-priorities.md) и [задачи](projects/cvnoor/tasks.md)
 - [Возможности Telegram для CVNoor API](projects/cvnoor-api/README.md) и [задачи](projects/cvnoor-api/tasks.md)
 - [Брейншторм по CVNoor](01-brainstorm/cvnoor-telegram-opportunities.md)

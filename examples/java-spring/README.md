@@ -12,7 +12,7 @@ This small Java 25 / Spring Boot app contains seven patterns:
 6. A consent-based Bot API text-file intake that downloads to a private temporary directory and deletes immediately.
 7. Optional Claude Messages API flow for a directly submitted private-chat question, with disclosure, feature consent, and a separate confirmation for each exact prompt.
 
-The examples share one service so the data boundaries are visible. They do not include credentials, a live test fixture, chat history indexing, Business-chat ingestion, TDLib, file downloads, or any real send. See [remaining examples](../../tasks/1.md) for later TDLib/file exercises.
+The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, Business-chat ingestion, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
 
 ## Prerequisites
 
