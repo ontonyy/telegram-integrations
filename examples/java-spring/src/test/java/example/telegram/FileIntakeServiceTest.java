@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,9 +67,7 @@ class FileIntakeServiceTest {
         assertFalse(result.reply().contains("IllegalStateException"));
         assertEquals(1, gateway.getFileCalls);
         assertEquals(1, gateway.downloadCalls);
-        try (var remaining = Files.list(tempDir)) {
-            assertEquals(0, remaining.count());
-        }
+        assertNoUploadWorkspaces();
     }
 
     @Test
@@ -76,9 +77,7 @@ class FileIntakeServiceTest {
         FileIntakeService.Result result = service().process(document("trace.txt", "text/plain", 20));
 
         assertFalse(result.accepted());
-        try (var remaining = Files.list(tempDir)) {
-            assertEquals(0, remaining.count());
-        }
+        assertNoUploadWorkspaces();
     }
 
     @Test
@@ -89,8 +88,8 @@ class FileIntakeServiceTest {
 
         assertFalse(result.accepted());
         assertEquals(0, gateway.downloadCalls);
-        try (var remaining = Files.list(tempDir)) {
-            assertEquals(0, remaining.count());
+        try (var entries = Files.list(tempDir)) {
+            assertEquals(0, entries.count());
         }
     }
 
@@ -102,9 +101,7 @@ class FileIntakeServiceTest {
 
         assertFalse(result.accepted());
         assertTrue(result.reply().contains("discarded"));
-        try (var remaining = Files.list(tempDir)) {
-            assertEquals(0, remaining.count());
-        }
+        assertNoUploadWorkspaces();
     }
 
     @Test
@@ -115,8 +112,58 @@ class FileIntakeServiceTest {
 
         assertFalse(result.accepted());
         assertTrue(Thread.currentThread().isInterrupted());
-        try (var remaining = Files.list(tempDir)) {
-            assertEquals(0, remaining.count());
+        assertNoUploadWorkspaces();
+    }
+
+    @Test
+    void removesAbandonedWorkspaceBeforeStartingAnotherUpload() throws Exception {
+        Path abandoned = Files.createDirectory(tempDir.resolve("upload-abandoned"));
+        Files.writeString(abandoned.resolve(".lease"), "synthetic lease");
+        Files.writeString(abandoned.resolve("content-partial.log"), "synthetic partial upload");
+
+        FileIntakeService.Result result = service().process(document("trace.log", "text/plain", 20));
+
+        assertTrue(result.accepted());
+        assertFalse(Files.exists(abandoned));
+        assertNoUploadWorkspaces();
+    }
+
+    @Test
+    void preservesWorkspaceWhileAnotherProcessHoldsItsLease() throws Exception {
+        Path active = Files.createDirectory(tempDir.resolve("upload-active"));
+        Path leasePath = Files.createFile(active.resolve(".lease"));
+        Path partial = Files.writeString(active.resolve("content-partial.log"), "synthetic active upload");
+        try (FileChannel channel = FileChannel.open(leasePath, StandardOpenOption.WRITE);
+                FileLock ignored = channel.lock()) {
+            FileIntakeService.Result result = service().process(document("trace.log", "text/plain", 20));
+
+            assertTrue(result.accepted());
+            assertTrue(Files.exists(active));
+            assertEquals("synthetic active upload", Files.readString(partial));
+        }
+        Files.delete(partial);
+        Files.delete(leasePath);
+        Files.delete(active);
+        assertNoUploadWorkspaces();
+    }
+
+    @Test
+    void skipsUnexpectedEntriesWhenCleaningAbandonedWorkspace() throws Exception {
+        Path abandoned = Files.createDirectory(tempDir.resolve("upload-unexpected"));
+        Files.createDirectory(abandoned.resolve("nested"));
+
+        FileIntakeService.Result result = service().process(document("trace.log", "text/plain", 20));
+
+        assertTrue(result.accepted());
+        assertTrue(Files.isDirectory(abandoned.resolve("nested")));
+        Files.delete(abandoned.resolve("nested"));
+        Files.delete(abandoned);
+        assertNoUploadWorkspaces();
+    }
+
+    private void assertNoUploadWorkspaces() throws IOException {
+        try (var entries = Files.list(tempDir)) {
+            assertEquals(0, entries.filter(path -> path.getFileName().toString().startsWith("upload-")).count());
         }
     }
 
