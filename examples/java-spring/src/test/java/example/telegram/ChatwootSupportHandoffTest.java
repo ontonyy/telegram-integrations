@@ -24,6 +24,16 @@ class ChatwootSupportHandoffTest {
     }
 
     @Test
+    void replyFromAnOperatorOtherThanTheAssignedOperatorNeverReachesChatwoot() {
+        assertTrue(handoff.acceptCustomerMessage(481, "telegram-contact-demo", "Synthetic order question"));
+        assertTrue(handoff.assign(481, "agent-7").accepted());
+
+        assertFalse(handoff.reply(481, "agent-9", "Synthetic unauthorized reply").accepted());
+
+        assertEquals(List.of("assign:481:agent-7"), actions.calls);
+    }
+
+    @Test
     void unknownOperatorUnassignedConversationAndInvalidReplyNeverReachChatwoot() {
         assertFalse(handoff.acceptCustomerMessage(481, "telegram-contact-demo", "  "));
         assertFalse(handoff.assign(481, "agent-9").accepted());

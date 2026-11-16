@@ -14,6 +14,16 @@ The 24-hour constraint described here is specific to Telegram Business bot repli
 
 This is a rolling customer-activity window, not a 24-hour limit measured from assignment. A handoff does not pause or extend it. If it expires, Chatwoot cannot make Telegram accept an ordinary reply; follow up manually through an allowed channel or wait for the customer to message again. Chatwoot recommends keeping the Business bot in its own inbox; if a person previously spoke to that same bot directly, replies can appear from the bot rather than the Business account.
 
+### Simple Business inbox flow
+
+1. The account owner connects the Business bot to the Business account and grants `can_reply` for the intended chats. The right authorizes replies; assignment alone does not grant Telegram permission.
+2. At **10:00**, the customer sends a private message. Telegram delivers the Business update, including its connection ID, to Chatwoot. Treat 10:00 as the start of the rolling 24-hour reply window.
+3. At **10:20**, Chatwoot matches the contact and conversation, stores the incoming message, and assigns conversation `481` to `agent-7`. Assignment routes the work; it does not start or reset the timer.
+4. At **11:00**, `agent-7` replies in the Business inbox. Chatwoot sends through the Business connection; Telegram can accept it because `can_reply` is granted and the customer's latest activity was at 10:00, only one hour earlier.
+5. If the customer sends another message at **15:00**, that newer incoming activity moves the rolling window's start to 15:00. Without newer customer activity, an ordinary reply after 10:00 the next day is outside the window, regardless of when an operator was assigned.
+
+The timestamps are illustrative and synthetic. In a real inbox, use the latest incoming customer activity recorded for the conversation when reasoning about the window; operator assignment and operator replies are not customer activity.
+
 ## Data flow
 
 ```mermaid
@@ -50,7 +60,7 @@ Chatwoot could inform a **proposed, owner-gated** CVNoor support pilot: let Chat
 
 ## Exercise and checkpoint
 
-Use the synthetic conversation ID `481` and agent `agent-7`. Run the focused test, then change the test to attempt a reply from another agent and confirm the fake gateway sees no reply. Draw the same flow for a Business inbox and label the account's granted `can_reply` right and the latest customer message time.
+Use the synthetic conversation ID `481` and agents `agent-7` and `agent-9`. The focused test assigns `481` to `agent-7`, attempts a reply from `agent-9`, and checks that the fake gateway records only the assignment. Trace the Business inbox flow above and identify the granted `can_reply` right and latest customer activity time.
 
 Before a live pilot, answer: what identifies the contact, who owns the message history, what exactly authorizes the sender identity, where is the reply window enforced, and who can view/delete stored messages and files?
 

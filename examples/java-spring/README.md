@@ -4,7 +4,7 @@
 
 This Java 25 / Spring Boot app contains twelve patterns:
 
-1. Bot API webhook with a shared-secret header, a narrow command allowlist and dry-run replies.
+1. Bot API webhook with a shared-secret header, a configurable request-body limit, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
 3. A synthetic group scheduling vote using inline buttons, server-side voter allowlisting and callback de-duplication.
 4. A signed Jira Cloud webhook adapter that filters issue events and sends a minimal Telegram notification.
@@ -149,6 +149,8 @@ curl -i -X POST http://localhost:8080/telegram/webhook \
   -H 'X-Telegram-Bot-Api-Secret-Token: local-demo-secret' \
   -d '{"message":{"message_id":1,"chat":{"id":12345,"type":"private"},"from":{"id":12345},"text":"/start"}}'
 ```
+
+The webhook rejects request bodies larger than 1 MiB before parsing by default. Set `TELEGRAM_WEBHOOK_MAX_BODY_BYTES` to tune the limit. The filter also counts the body when `Content-Length` is absent; edge request-size and rate limits remain useful additional protections. See [J03](../../tasks/completed-issues/J03.md).
 
 The `demo` profile supplies a public, non-secret local placeholder for the webhook header. The server logs only a dry-run marker without the message or destination, and returns HTTP 200. Try `/ai-help`, `/consent`, `/ask Please summarize this sample issue`, then `/ai-confirm`. The exact prompt stays only in volatile application memory until confirmation, cancellation, revocation, or restart; the provider is not called before `/ai-confirm`. Use `/ai-cancel` to discard a staged prompt and `/stop` to revoke AI consent and clear it. The example never adds chat history, files, Business messages, or other users' messages to the request. Without configured Anthropic credentials, confirmation still makes no network call. Without a configured webhook secret (or the explicit demo profile), the webhook returns HTTP 503.
 
