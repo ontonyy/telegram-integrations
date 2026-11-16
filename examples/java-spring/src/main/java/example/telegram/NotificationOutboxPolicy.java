@@ -17,11 +17,16 @@ public class NotificationOutboxPolicy {
             @Value("${telegram.outbox.base-delay:PT2S}") Duration baseDelay,
             @Value("${telegram.outbox.max-delay:PT1M}") Duration maxDelay,
             @Value("${telegram.outbox.lease-duration:PT30S}") Duration leaseDuration,
-            @Value("${telegram.outbox.terminal-retention:PT24H}") Duration terminalRetention) {
+            @Value("${telegram.outbox.terminal-retention:PT24H}") Duration terminalRetention,
+            @Value("${telegram.request-timeout:PT10S}") Duration telegramRequestTimeout) {
         if (maxAttempts < 1 || baseDelay.isNegative() || maxDelay.compareTo(baseDelay) < 0
                 || leaseDuration.isZero() || leaseDuration.isNegative()
-                || terminalRetention.isNegative()) {
+                || terminalRetention.isNegative()
+                || telegramRequestTimeout.isZero() || telegramRequestTimeout.isNegative()) {
             throw new IllegalArgumentException("Outbox retry and lease settings are invalid");
+        }
+        if (leaseDuration.compareTo(telegramRequestTimeout) <= 0) {
+            throw new IllegalArgumentException("Outbox lease duration must exceed the Telegram request timeout");
         }
         this.maxAttempts = maxAttempts;
         this.baseDelay = baseDelay;

@@ -138,7 +138,7 @@ class JdbcNotificationOutboxTest {
         NotificationOutboxDispatcher dispatcher = new NotificationOutboxDispatcher(
                 outbox, (chatId, text) -> NotificationDeliveryResult.sent(),
                 new NotificationOutboxPolicy(3, Duration.ofSeconds(2), Duration.ofSeconds(30),
-                        Duration.ofSeconds(30), Duration.ofHours(24)),
+                        Duration.ofSeconds(30), Duration.ofHours(24), Duration.ofSeconds(10)),
                 false);
 
         assertFalse(dispatcher.dispatchOne(now));
@@ -175,7 +175,7 @@ class JdbcNotificationOutboxTest {
         return new NotificationOutboxDispatcher(
                 outbox, sender,
                 new NotificationOutboxPolicy(maxAttempts, Duration.ofSeconds(2), Duration.ofSeconds(30),
-                        Duration.ofSeconds(30), Duration.ofHours(24)),
+                        Duration.ofSeconds(30), Duration.ofHours(24), Duration.ofSeconds(10)),
                 true);
     }
 
