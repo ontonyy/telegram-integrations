@@ -26,6 +26,9 @@ jobs:
         working-directory: examples/java-spring
         run: ./gradlew clean test
 
+      - name: Run credential-free TDLib fake-port tests
+        run: ./examples/java-spring/gradlew -p examples/tdlib-java test
+
       - name: Configure Telegram delivery for trusted default-branch runs
         if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
         env:

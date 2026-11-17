@@ -141,8 +141,15 @@ public class BusinessSupportService {
                 ignored -> "BUS-" + ticketSequence.incrementAndGet());
         MutableTicket ticket = tickets.computeIfAbsent(ticketRef,
                 ignored -> new MutableTicket(ticketRef, connectionId, chatId));
-        ticket.lastCustomerMessageId = messageId;
-        ticket.lastIncomingAt = Instant.ofEpochSecond(date);
+        Instant incomingAt = Instant.ofEpochSecond(date);
+        if (change == MessageChange.NEW
+                && (ticket.lastIncomingAt == null
+                        || incomingAt.isAfter(ticket.lastIncomingAt)
+                        || (incomingAt.equals(ticket.lastIncomingAt)
+                                && messageId > ticket.lastCustomerMessageId))) {
+            ticket.lastCustomerMessageId = messageId;
+            ticket.lastIncomingAt = incomingAt;
+        }
         ticket.lastChange = change;
         ticket.deletedMessageIds.clear();
         if (ticket.status == TicketStatus.CLOSED) {

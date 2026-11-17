@@ -85,6 +85,32 @@ class BusinessSupportServiceTest {
     }
 
     @Test
+    void editingOlderMessagePreservesLatestIncomingTimeAndMessageIdForReplyWindow() {
+        service.handleUpdate(customerUpdate("business_message", 401, NOW.minusSeconds(86_401)));
+        service.handleUpdate(customerUpdate("business_message", 402, NOW.minusSeconds(1)));
+
+        service.handleUpdate(customerUpdate("edited_business_message", 401, NOW.minusSeconds(86_401)));
+
+        BusinessSupportService.Ticket ticket = service.tickets().getFirst();
+        assertEquals(402L, ticket.lastCustomerMessageId());
+        assertEquals(NOW.minusSeconds(1), ticket.lastIncomingAt());
+        assertEquals("EDITED", ticket.lastChange());
+        service.takeOver(ticket.reference(), "operator-7");
+        assertTrue(service.replyAsOperator(ticket.reference(), "operator-7", "Still in window").accepted());
+    }
+
+    @Test
+    void editingAnExpiredMessageDoesNotReopenItsReplyWindow() {
+        service.handleUpdate(customerUpdate("business_message", 403, NOW.minusSeconds(86_401), 556));
+        BusinessSupportService.Ticket ticket = service.tickets().getFirst();
+        service.handleUpdate(customerUpdate("edited_business_message", 403, NOW.minusSeconds(86_401), 556));
+        service.takeOver(ticket.reference(), "operator-7");
+
+        assertFalse(service.replyAsOperator(ticket.reference(), "operator-7", "Too late").accepted());
+        assertEquals(0, sender.sendCount);
+    }
+
+    @Test
     void fallsBackWithoutSendingWhenConnectionRightOrReplyWindowDoesNotPermitReply() {
         service.handleUpdate(customerUpdate("business_message", 305, NOW.minusSeconds(10)));
         String ticketRef = service.tickets().getFirst().reference();
@@ -106,17 +132,23 @@ class BusinessSupportServiceTest {
                 {"business_connection":{"id":"business-connection-demo","user":{"id":900},
                  "is_enabled":true,"rights":{"can_reply":true}}}
                 """));
-        service.handleUpdate(customerUpdate("business_message", 306, NOW.minusSeconds(86_401)));
-        assertFalse(service.replyAsOperator(ticketRef, "operator-7", "Too late").accepted());
+        service.handleUpdate(customerUpdate("business_message", 306, NOW.minusSeconds(86_401), 556));
+        String expiredTicketRef = service.tickets().get(1).reference();
+        service.takeOver(expiredTicketRef, "operator-7");
+        assertFalse(service.replyAsOperator(expiredTicketRef, "operator-7", "Too late").accepted());
         assertEquals(0, sender.sendCount);
     }
 
     private JsonNode customerUpdate(String updateType, long messageId, Instant sentAt) {
+        return customerUpdate(updateType, messageId, sentAt, 555);
+    }
+
+    private JsonNode customerUpdate(String updateType, long messageId, Instant sentAt, long chatId) {
         return json("""
                 {"%s":{"business_connection_id":"business-connection-demo","message_id":%d,
-                 "date":%d,"chat":{"id":555,"type":"private"},"from":{"id":42},
+                 "date":%d,"chat":{"id":%d,"type":"private"},"from":{"id":42},
                  "text":"synthetic customer text"}}
-                """.formatted(updateType, messageId, sentAt.getEpochSecond()));
+                """.formatted(updateType, messageId, sentAt.getEpochSecond(), chatId));
     }
 
     private JsonNode json(String input) {

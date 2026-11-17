@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /** Bounds the JSON body before Spring parses a Telegram webhook update. */
 @Component
 public final class TelegramWebhookBodyLimitFilter extends OncePerRequestFilter {
+    private static final int PROVIDER_WEBHOOK_MAX_BODY_BYTES = 1_000_000;
     private final int maxBodyBytes;
 
     public TelegramWebhookBodyLimitFilter(
@@ -31,10 +32,11 @@ public final class TelegramWebhookBodyLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String requestUri = request.getRequestURI();
-        String contextPath = request.getContextPath();
-        String path = contextPath.isEmpty() ? requestUri : requestUri.substring(contextPath.length());
-        return !"POST".equals(request.getMethod()) || !"/telegram/webhook".equals(path);
+        String path = requestPath(request);
+        return !"POST".equals(request.getMethod())
+                || !("/telegram/webhook".equals(path)
+                        || "/jira/webhook".equals(path)
+                        || "/grafana/webhook".equals(path));
     }
 
     @Override
@@ -42,13 +44,14 @@ public final class TelegramWebhookBodyLimitFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             jakarta.servlet.FilterChain filterChain) throws IOException, jakarta.servlet.ServletException {
-        if (request.getContentLengthLong() > maxBodyBytes) {
+        int requestLimit = requestLimit(request);
+        if (request.getContentLengthLong() > requestLimit) {
             reject(response);
             return;
         }
 
-        byte[] body = request.getInputStream().readNBytes(maxBodyBytes + 1);
-        if (body.length > maxBodyBytes) {
+        byte[] body = request.getInputStream().readNBytes(requestLimit + 1);
+        if (body.length > requestLimit) {
             reject(response);
             return;
         }
@@ -58,6 +61,18 @@ public final class TelegramWebhookBodyLimitFilter extends OncePerRequestFilter {
 
     private void reject(HttpServletResponse response) {
         response.setStatus(HttpStatus.CONTENT_TOO_LARGE.value());
+    }
+
+    private int requestLimit(HttpServletRequest request) {
+        return "/telegram/webhook".equals(requestPath(request))
+                ? maxBodyBytes
+                : PROVIDER_WEBHOOK_MAX_BODY_BYTES;
+    }
+
+    private String requestPath(HttpServletRequest request) {
+        String requestUri = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        return contextPath.isEmpty() ? requestUri : requestUri.substring(contextPath.length());
     }
 
     private static final class CachedBodyRequest extends HttpServletRequestWrapper {

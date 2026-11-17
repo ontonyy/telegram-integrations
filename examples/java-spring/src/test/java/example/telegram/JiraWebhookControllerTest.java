@@ -32,7 +32,9 @@ class JiraWebhookControllerTest {
                 telegram, "-123456", "DEMO", "Bug,Task", "In Progress,Done", "https://jira.example.test");
         JiraWebhookController controller = new JiraWebhookController(
                 SECRET, new JiraWebhookSignatureValidator(), new JiraWebhookRegistry(), notifications, mapper);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .addFilters(new TelegramWebhookBodyLimitFilter(1_048_576))
+                .build();
     }
 
     @Test

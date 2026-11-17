@@ -99,7 +99,7 @@ class MiniAppControllerTest {
                 .map(entry -> entry.getKey() + "=" + entry.getValue())
                 .reduce((left, right) -> left + "\n" + right)
                 .orElseThrow();
-        byte[] secret = hmac(BOT_TOKEN.getBytes(StandardCharsets.UTF_8), "WebAppData");
+        byte[] secret = hmac("WebAppData".getBytes(StandardCharsets.UTF_8), BOT_TOKEN);
         String hash = HexFormatSupport.toHex(hmac(secret, checkString));
         String encoded = new TreeMap<>(values).entrySet().stream()
                 .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))

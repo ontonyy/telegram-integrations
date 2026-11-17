@@ -66,7 +66,8 @@ class FileIntakeWebhookTest {
         assertTrue(telegram.lastMessage.contains("deleted"));
         assertFalse(telegram.lastMessage.contains("Sensitive synthetic stack trace"));
         try (var remaining = Files.list(tempDir)) {
-            assertEquals(0, remaining.count());
+            assertEquals(java.util.List.of(".maintenance.lock"),
+                    remaining.map(path -> path.getFileName().toString()).sorted().toList());
         }
     }
 

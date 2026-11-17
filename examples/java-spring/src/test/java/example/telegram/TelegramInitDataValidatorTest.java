@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.crypto.Mac;
@@ -14,13 +16,26 @@ import org.junit.jupiter.api.Test;
 
 class TelegramInitDataValidatorTest {
     private static final String BOT_TOKEN = "synthetic-test-token";
-    private final TelegramInitDataValidator validator = new TelegramInitDataValidator();
+    private static final Instant NOW = Instant.ofEpochSecond(1_704_067_800L);
+    private final TelegramInitDataValidator validator = new TelegramInitDataValidator(
+            Clock.fixed(NOW, ZoneOffset.UTC));
+
+    @Test
+    void acceptsIndependentFixedTelegramSignatureVector() {
+        String initData = "auth_date=1704067200&query_id=q1&user=%7B%22id%22%3A123%2C%22first_name%22%3A%22Ada%22%7D"
+                + "&hash=35c6a3516d3a9faf6a167b40fa5cfff07c404839bb8fff73fce3cfd69869879f";
+
+        Map<String, String> validated = validator.validate(initData, "synthetic:test-token");
+
+        assertEquals("q1", validated.get("query_id"));
+        assertEquals("{\"id\":123,\"first_name\":\"Ada\"}", validated.get("user"));
+    }
 
     @Test
     void acceptsFreshDataWithAValidTelegramStyleSignature() {
         String user = "{\"id\":12345,\"first_name\":\"Test\"}";
         Map<String, String> values = Map.of(
-                "auth_date", Long.toString(Instant.now().getEpochSecond()),
+                "auth_date", Long.toString(NOW.getEpochSecond()),
                 "query_id", "synthetic-query",
                 "user", user);
 
@@ -33,7 +48,7 @@ class TelegramInitDataValidatorTest {
     @Test
     void rejectsTamperedData() {
         String initData = signedInitData(Map.of(
-                "auth_date", Long.toString(Instant.now().getEpochSecond()),
+                "auth_date", Long.toString(NOW.getEpochSecond()),
                 "query_id", "synthetic-query"));
 
         assertThrows(IllegalArgumentException.class,
@@ -43,7 +58,7 @@ class TelegramInitDataValidatorTest {
     @Test
     void rejectsStaleSignedData() {
         String initData = signedInitData(Map.of(
-                "auth_date", Long.toString(Instant.now().getEpochSecond() - 3_600),
+                "auth_date", Long.toString(NOW.getEpochSecond() - 901),
                 "query_id", "synthetic-query"));
 
         assertThrows(IllegalArgumentException.class, () -> validator.validate(initData, BOT_TOKEN));
@@ -61,7 +76,7 @@ class TelegramInitDataValidatorTest {
                 .map(entry -> entry.getKey() + "=" + entry.getValue())
                 .reduce((left, right) -> left + "\n" + right)
                 .orElseThrow();
-        byte[] secret = hmac(BOT_TOKEN.getBytes(StandardCharsets.UTF_8), "WebAppData");
+        byte[] secret = hmac("WebAppData".getBytes(StandardCharsets.UTF_8), BOT_TOKEN);
         String hash = HexFormatSupport.toHex(hmac(secret, dataCheckString));
         return sorted.entrySet().stream()
                 .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))

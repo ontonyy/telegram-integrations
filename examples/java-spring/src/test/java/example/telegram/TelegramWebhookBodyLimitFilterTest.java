@@ -6,7 +6,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.ServletInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,6 +73,65 @@ class TelegramWebhookBodyLimitFilterTest {
 
         assertEquals(HttpStatus.CONTENT_TOO_LARGE.value(), response.getStatus());
         assertEquals(0, endpoint.calls.get());
+    }
+
+    @Test
+    void rejectsOversizedJiraAndGrafanaBodiesWithoutContentLength() throws Exception {
+        for (String path : List.of("/jira/webhook", "/grafana/webhook")) {
+            AtomicInteger calls = new AtomicInteger();
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
+            request.setContent(new byte[1_000_001]);
+            HttpServletRequest withoutContentLength = new HttpServletRequestWrapper(request) {
+                @Override
+                public int getContentLength() {
+                    return -1;
+                }
+
+                @Override
+                public long getContentLengthLong() {
+                    return -1;
+                }
+            };
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new TelegramWebhookBodyLimitFilter(MAX_BODY_BYTES).doFilter(
+                    withoutContentLength, response, (servletRequest, servletResponse) -> calls.incrementAndGet());
+
+            assertEquals(HttpStatus.CONTENT_TOO_LARGE.value(), response.getStatus(), path);
+            assertEquals(0, calls.get(), path);
+        }
+    }
+
+    @Test
+    void rejectsDeclaredOversizedJiraAndGrafanaBodiesBeforeReadingThem() throws Exception {
+        for (String path : List.of("/jira/webhook", "/grafana/webhook")) {
+            AtomicInteger calls = new AtomicInteger();
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
+            request.setContent(new byte[0]);
+            HttpServletRequest declaredOversized = new HttpServletRequestWrapper(request) {
+                @Override
+                public int getContentLength() {
+                    return 1_000_001;
+                }
+
+                @Override
+                public long getContentLengthLong() {
+                    return 1_000_001;
+                }
+
+                @Override
+                public ServletInputStream getInputStream() {
+                    throw new AssertionError("The filter must reject before reading the body");
+                }
+            };
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new TelegramWebhookBodyLimitFilter(MAX_BODY_BYTES).doFilter(
+                    declaredOversized, response, (servletRequest, servletResponse) -> calls.incrementAndGet());
+
+            assertEquals(HttpStatus.CONTENT_TOO_LARGE.value(), response.getStatus(), path);
+            assertEquals(0, calls.get(), path);
+        }
     }
 
     @RestController
