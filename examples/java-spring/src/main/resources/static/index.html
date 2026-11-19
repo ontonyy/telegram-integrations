@@ -12,6 +12,8 @@
     input, textarea, button { box-sizing: border-box; font: inherit; padding: .7rem; width: 100%; }
     textarea { min-height: 7rem; }
     button { margin-top: 1rem; }
+    section { border-top: 1px solid #8886; margin-top: 2rem; padding-top: 1rem; }
+    ul { padding-left: 1.25rem; }
     pre { white-space: pre-wrap; overflow-wrap: anywhere; }
     .muted { opacity: .75; }
   </style>
@@ -28,10 +30,27 @@
   </form>
   <button id="refresh" type="button">Check latest request status</button>
   <pre id="result" role="status">Open this Mini App inside Telegram to submit a request.</pre>
+
+  <section aria-labelledby="shared-title">
+    <h2 id="shared-title">Shared group availability</h2>
+    <p class="muted">An allowlisted group can share availability slots. Each change uses the board version so concurrent edits are not silently lost.</p>
+    <button id="load-board" type="button">Load shared board</button>
+    <p>Shared availability counts</p>
+    <ul id="slot-counts"><li>Load the board from an authorized group launch.</li></ul>
+    <p>Your current slots: <span id="my-slots">none</span></p>
+    <form id="availability-form">
+      <label for="slots">Your available times (comma-separated)</label>
+      <input id="slots" maxlength="520" placeholder="Mon 10:00, Tue 14:00">
+      <button id="save-slots" type="submit">Save availability</button>
+    </form>
+    <pre id="shared-result" role="status">The server requires a valid signed group launch and a configured application allowlist.</pre>
+  </section>
   <script>
     const app = window.Telegram?.WebApp;
     const result = document.querySelector('#result');
     const form = document.querySelector('#request-form');
+    const sharedResult = document.querySelector('#shared-result');
+    let boardVersion = null;
     app?.ready();
 
     async function post(path, payload) {
@@ -75,6 +94,80 @@
         result.textContent = `Request ${request.requestId} · ${request.status}\n${request.title}`;
       } catch (error) {
         result.textContent = error.message;
+      }
+    });
+
+    function renderBoard(board) {
+      boardVersion = board.version;
+      const list = document.querySelector('#slot-counts');
+      list.replaceChildren();
+      const entries = Object.entries(board.slotCounts || {}).sort(([left], [right]) => left.localeCompare(right));
+      if (entries.length === 0) {
+        const empty = document.createElement('li');
+        empty.textContent = 'No availability has been submitted yet.';
+        list.append(empty);
+      }
+      for (const [slot, count] of entries) {
+        const item = document.createElement('li');
+        item.textContent = `${slot}: ${count}`;
+        list.append(item);
+      }
+      document.querySelector('#my-slots').textContent = board.mySlots?.join(', ') || 'none';
+    }
+
+    async function loadBoard() {
+      const response = await fetch('/api/miniapp/shared/board', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: app?.initData || '' })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+      renderBoard(body);
+      sharedResult.textContent = `Shared board version ${boardVersion}.`;
+    }
+
+    document.querySelector('#load-board').addEventListener('click', async () => {
+      try {
+        await loadBoard();
+      } catch (error) {
+        sharedResult.textContent = error.message;
+      }
+    });
+
+    document.querySelector('#availability-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const save = document.querySelector('#save-slots');
+      if (boardVersion === null) {
+        sharedResult.textContent = 'Load the shared board before saving availability.';
+        return;
+      }
+      const slots = document.querySelector('#slots').value
+        .split(',').map((slot) => slot.trim()).filter(Boolean);
+      save.disabled = true;
+      try {
+        const response = await fetch('/api/miniapp/shared/availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            initData: app?.initData || '',
+            expectedVersion: boardVersion,
+            slots
+          })
+        });
+        const body = await response.json();
+        if (response.status === 409 && body.board) {
+          renderBoard(body.board);
+          sharedResult.textContent = `${body.error} Current version: ${boardVersion}. Review it and submit again.`;
+          return;
+        }
+        if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+        renderBoard(body);
+        sharedResult.textContent = `Availability saved at board version ${boardVersion}.`;
+      } catch (error) {
+        sharedResult.textContent = error.message;
+      } finally {
+        save.disabled = false;
       }
     });
   </script>

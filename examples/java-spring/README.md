@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This Java 25 / Spring Boot app contains twelve patterns:
+This Java 25 / Spring Boot app contains thirteen patterns:
 
 1. Bot API webhook with a shared-secret header, a configurable request-body limit, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -16,6 +16,7 @@ This Java 25 / Spring Boot app contains twelve patterns:
 10. A private internal request lifecycle with a server-configured employee/manager directory, request status, two-step approval callbacks, stale-action guards, and a minimal UTC audit trail.
 11. A file-backed H2 notification outbox with stable event IDs, leased worker claims, bounded retries, Telegram `retry_after` handling, expiry, and terminal-row retention.
 12. A mock-friendly Chatwoot support handoff choreography seam: synthetic conversation assignment, allowlisted assigned-operator replies, and a recording fake. Chatwoot's built-in Telegram channel is the actual Telegram integration; this Java seam has no Chatwoot/Telegram HTTP client, webhook endpoint, or durable store and is not needed when agents work directly in Chatwoot.
+13. A shared Mini App availability board with signed group launch context, an exact chat/user allowlist, per-user contributions, aggregated slot counts, idempotent retries, and version conflicts.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
 
@@ -161,6 +162,14 @@ The `demo` profile supplies a public, non-secret local placeholder for the webho
 Open `http://localhost:8080/` to inspect the Mini App form. A normal browser does not provide Telegram-signed `initData`; submit/status endpoints reject it unless a fresh launch payload and `TELEGRAM_BOT_TOKEN` are supplied. No credentials are provided here, so authenticated submission is not available in this local demo by default. The form sends raw `initData` in POST bodies, never treats `initDataUnsafe` or a browser-supplied Telegram ID as proof of identity, and displays a synthetic request status. Use HTTPS when deploying it.
 
 The backend exposes `POST /api/miniapp/requests` to validate launch data and create a request, then `POST /api/miniapp/requests/status` to retrieve it. The server derives the owner ID from the signed `user` field; the application policy allows a verified user to create their own request and lets only that owner read it. A different verified user receives 404. The store holds at most 1,000 records in process memory, is lost on restart and is not shared between instances. Replace it with durable storage and re-check authorization at every record operation before deployment. The sample does not post results into Telegram, so it needs no chat-send rights. If launched from a group, any `chat_instance` is context only: this example does not use it to authorize access or expose group messages. Host a deployed Mini App only behind HTTPS and configure Telegram's launch URL in a controlled bot setup; no public URL or bot is configured here.
+
+### Shared group Mini App board
+
+The same page includes a synthetic shared availability board. `POST /api/miniapp/shared/board` returns the current board and the signed user's own slots; `POST /api/miniapp/shared/availability` replaces that user's contribution using the version from the last read. Shared results contain slot counts, not other users' Telegram IDs or individual choices. An identical retry is a no-op; a stale conflicting update returns HTTP 409 with the current board so the user can review it before trying again.
+
+The backend accepts only fresh signed `initData` containing a user, `chat_instance`, and `chat_type` of `group` or `supergroup`. It then checks the exact pair against `TELEGRAM_MINIAPP_SHARED_ALLOWED_MEMBERSHIPS`, formatted as comma-separated `chat_instance=user_id` entries. An empty setting denies all access. Do not use browser-supplied chat/user values. `chat_instance` is a context key, not proof of group membership; the configured application allowlist is the authorization rule. Telegram does not give this Mini App group history or permission to send as a user.
+
+The board has process-local state, at most 500 chat boards, 50 contributors per board, and eight slots per contribution. Restarting the app loses the state, and multiple app instances do not share it. The synchronized in-memory compare-and-set demonstrates lost-update handling in one process; a real deployment needs shared durable storage and a database transaction or atomic conditional update. The allowlist is a teaching authorization seam, not a production membership directory. Tests use synthetic users/chat context and do not connect a Telegram account or send messages. See [J18](../../tasks/completed-issues/J18.md) and the [shared Mini App lesson](../../learning/04-mini-apps.md).
 
 ## Telegram Business support intake and operator handoff
 

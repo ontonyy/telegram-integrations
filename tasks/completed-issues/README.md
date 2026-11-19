@@ -25,5 +25,6 @@ Russian versions are in [`ru/tasks/completed-issues`](../../ru/tasks/completed-i
 | J15 | Private employee request and approval | [J15](J15.md) |
 | J16 | Durable notification outbox, retry policy, and expiry | [J16](J16.md) |
 | J17 | Chatwoot Telegram customer-support handoff walkthrough and mock seam | [J17](J17.md) |
+| J18 | Shared group Mini App, exact application allowlist, and versioned availability updates | [J18](J18.md) |
 
 Start with [the Java/Spring README](../../examples/java-spring/README.md) for commands, configuration names, and the shared demo boundaries. J13 is a research decision, not a runnable bridge. J12 is isolated and is not part of the normal Spring startup. J17's built-in Chatwoot Telegram channel is separate from its fake-backed Java choreography seam.

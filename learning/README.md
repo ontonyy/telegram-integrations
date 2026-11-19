@@ -11,7 +11,7 @@ Start with Step 1 and continue in order. Each lesson gives you a concept, a code
 | [1. Choose the Telegram surface](01-choose-a-surface.md) | Bot API, Business, Mini Apps, TDLib, automation tools | Before choosing a product architecture | J01, J12, J13 |
 | [2. Build the bot service boundary](02-bot-service.md) | Outbound HTTP, webhook, secrets, retries, idempotency, outbox | Commands, notifications, service integration | J01–J03, J16 |
 | [3. Model people and chat permissions](03-chat-workflows.md) | Private chats, groups, Business support, roles, handoff | Support, approvals, votes, internal requests | J04, J05, J15 |
-| [4. Add a web interface with Mini Apps](04-mini-apps.md) | Launch context, signed identity, backend authorization | Forms, dashboards, shared workflows | J07 |
+| [4. Add a web interface with Mini Apps](04-mini-apps.md) | Launch context, signed identity, backend authorization, shared state and concurrency | Forms, dashboards, shared workflows | J07, J18 |
 | [5. Connect business and operations systems](05-connect-business-systems.md) | Webhooks, filters, acknowledgements, CRM, CI and reliable delivery | Sales, incidents, project delivery | J06, J08, J09, J14, J16 |
 | [6. Handle files and AI deliberately](06-files-and-ai.md) | Consent, file boundaries, direct-to-bot AI, data policy | Customer self-service and document workflows | J10, J11 |
 | [7. Understand user clients and coding-agent bridges](07-tdlib-and-agents.md) | TDLib sessions, account access, agent isolation | A real user-client requirement or remote development pilot | J12, J13 |
