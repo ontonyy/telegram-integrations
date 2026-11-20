@@ -24,6 +24,7 @@ public class TelegramWebhookController {
     private final BusinessSupportService businessSupportService;
     private final SalesLeadService salesLeadService;
     private final InternalRequestService internalRequestService;
+    private final TelegramStarsPaymentService starsPaymentService;
 
     public TelegramWebhookController(
             @Value("${telegram.webhook-secret:}") String webhookSecret,
@@ -34,7 +35,8 @@ public class TelegramWebhookController {
             FileIntakeService fileIntakeService,
             BusinessSupportService businessSupportService,
             SalesLeadService salesLeadService,
-            InternalRequestService internalRequestService) {
+            InternalRequestService internalRequestService,
+            TelegramStarsPaymentService starsPaymentService) {
         this.webhookSecret = webhookSecret;
         this.replyService = replyService;
         this.updateRegistry = updateRegistry;
@@ -44,6 +46,7 @@ public class TelegramWebhookController {
         this.businessSupportService = businessSupportService;
         this.salesLeadService = salesLeadService;
         this.internalRequestService = internalRequestService;
+        this.starsPaymentService = starsPaymentService;
     }
 
     @PostMapping("/telegram/webhook")
@@ -65,6 +68,24 @@ public class TelegramWebhookController {
                 || !updateIdNode.canConvertToLong()
                 || updateIdNode.asLong() < 0) {
             return ResponseEntity.badRequest().build();
+        }
+
+        JsonNode preCheckout = update.path("pre_checkout_query");
+        if (preCheckout.isObject()) {
+            try {
+                TelegramStarsPaymentService.PreCheckoutQuery query =
+                        new TelegramStarsPaymentService.PreCheckoutQuery(
+                                preCheckout.path("id").asText(""),
+                                preCheckout.path("from").path("id").asText(""),
+                                preCheckout.path("invoice_payload").asText(""),
+                                preCheckout.path("currency").asText(""),
+                                preCheckout.path("total_amount").asLong(-1));
+                updateRegistry.processOnce(updateIdNode.asLong(), () ->
+                        starsPaymentService.handlePreCheckout(query));
+            } catch (RuntimeException exception) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+            }
+            return ResponseEntity.ok().build();
         }
 
         if (isBusinessUpdate(update)) {
@@ -94,6 +115,23 @@ public class TelegramWebhookController {
 
         try {
             long updateId = updateIdNode.asLong();
+            JsonNode successfulPayment = message.path("successful_payment");
+            if (successfulPayment.isObject()) {
+                if (!"private".equals(chatType)) {
+                    return ResponseEntity.ok().build();
+                }
+                updateRegistry.processOnce(updateId, () -> {
+                    TelegramStarsPaymentService.PaymentResult result = starsPaymentService.handleSuccessfulPayment(
+                            new TelegramStarsPaymentService.SuccessfulPayment(
+                                    userId,
+                                    successfulPayment.path("invoice_payload").asText(""),
+                                    successfulPayment.path("currency").asText(""),
+                                    successfulPayment.path("total_amount").asLong(-1),
+                                    successfulPayment.path("telegram_payment_charge_id").asText("")));
+                    replyService.sendOrLog(chatId, result.message());
+                });
+                return ResponseEntity.ok().build();
+            }
             JsonNode document = message.path("document");
             if (document.isObject()) {
                 if (!"private".equals(chatType)) {
@@ -120,6 +158,15 @@ public class TelegramWebhookController {
                 return ResponseEntity.ok().build();
             }
             String command = text.strip().split("\\s", 2)[0].split("@", 2)[0];
+            if (Set.of("/buy-demo", "/refund-demo", "/paysupport").contains(command)) {
+                if (!"private".equals(chatType)) {
+                    return ResponseEntity.ok().build();
+                }
+                updateRegistry.processOnce(updateId, () -> starsPaymentService
+                        .handleCommand(text, chatType, userId)
+                        .ifPresent(body -> replyService.sendOrLog(chatId, body)));
+                return ResponseEntity.ok().build();
+            }
             if ("/vote".equals(command) && isGroup(chatType)) {
                 updateRegistry.processOnce(updateId, () -> {
                     GroupVoteService.VotePrompt prompt = groupVoteService.start(chatId, userId);

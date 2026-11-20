@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This Java 25 / Spring Boot app contains thirteen patterns:
+This Java 25 / Spring Boot app contains fourteen patterns:
 
 1. Bot API webhook with a shared-secret header, a configurable request-body limit, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -17,8 +17,15 @@ This Java 25 / Spring Boot app contains thirteen patterns:
 11. A file-backed H2 notification outbox with stable event IDs, leased worker claims, bounded retries, Telegram `retry_after` handling, expiry, and terminal-row retention.
 12. A mock-friendly Chatwoot support handoff choreography seam: synthetic conversation assignment, allowlisted assigned-operator replies, and a recording fake. Chatwoot's built-in Telegram channel is the actual Telegram integration; this Java seam has no Chatwoot/Telegram HTTP client, webhook endpoint, or durable store and is not needed when agents work directly in Chatwoot.
 13. A shared Mini App availability board with signed group launch context, an exact chat/user allowlist, per-user contributions, aggregated slot counts, idempotent retries, and version conflicts.
+14. A synthetic Telegram Stars lifecycle with private demo order intents, pre-checkout validation, successful-payment-only fulfillment, duplicate handling, owner-authorized refunds, and payment support guidance. Its in-memory gateway never creates an invoice, calls Telegram, or moves Stars.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
+
+### Simulated Telegram Stars lifecycle
+
+Use `/buy-demo` in a private chat to create an in-memory `STARS-...` order reference and `/paysupport` to see the support boundary. The app never sends `sendInvoice`, so a real Telegram client cannot produce a payment for this demo. Service tests inject synthetic `pre_checkout_query` and `successful_payment` values through fake gateways. Pre-checkout checks the order owner, `XTR`, exact amount and expiry; only a valid successful-payment update after approval fulfills the synthetic entitlement. Duplicate updates and charge IDs do not fulfill twice. `/refund-demo <order-reference>` is owner-scoped and calls only the fake refund adapter.
+
+Run focused tests with `./gradlew test --tests example.telegram.TelegramStarsPaymentServiceTest --tests example.telegram.TelegramWebhookControllerTest`. Order and idempotency state are process-local, bounded and lost on restart; multiple instances do not share state. The ten-second pre-checkout budget is a local clock check, not a measured Telegram round trip. This is a teaching example, not a production payments integration. See [J19](../../tasks/completed-issues/J19.md) and the [Stars lesson](../../learning/09-stars-payments.md).
 
 ### Chatwoot Telegram customer support
 

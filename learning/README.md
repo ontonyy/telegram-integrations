@@ -16,6 +16,7 @@ Start with Step 1 and continue in order. Each lesson gives you a concept, a code
 | [6. Handle files and AI deliberately](06-files-and-ai.md) | Consent, file boundaries, direct-to-bot AI, data policy | Customer self-service and document workflows | J10, J11 |
 | [7. Understand user clients and coding-agent bridges](07-tdlib-and-agents.md) | TDLib sessions, account access, agent isolation | A real user-client requirement or remote development pilot | J12, J13 |
 | [8. Run customer support through Chatwoot](08-chatwoot-support.md) | Standard Telegram bot vs Business bot, operator handoff, stored history, rights and reply window | A team needs a shared support inbox | J05, J17 |
+| [9. Simulate Telegram Stars payments](09-stars-payments.md) | XTR invoice lifecycle, pre-checkout deadline, fulfillment, idempotency, refunds and support | A product needs a payment-flow prototype before provider wiring | J19 |
 
 ## How to study each step
 

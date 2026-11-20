@@ -31,7 +31,7 @@ public class BotReplyService {
             return Optional.of("Demo assistant. Send /ai-help to read how the optional AI feature handles one question at a time.");
         }
         if (command.equals("/help")) {
-            return Optional.of("Commands: /start, /help, /status, /ai-help, /consent, /ask <question>, /ai-confirm, /ai-cancel, /stop, /human, /file-help, /file-consent, /file-stop. AI is optional; no chat history is collected.");
+            return Optional.of("Commands: /start, /help, /status, /ai-help, /consent, /ask <question>, /ai-confirm, /ai-cancel, /stop, /human, /file-help, /file-consent, /file-stop, /buy-demo, /refund-demo <order-reference>, /paysupport. Stars commands run only a synthetic in-memory simulation; they do not create invoices or move Stars.");
         }
         if (command.equals("/status")) {
             return Optional.of("Demo status: all sample components are running.");

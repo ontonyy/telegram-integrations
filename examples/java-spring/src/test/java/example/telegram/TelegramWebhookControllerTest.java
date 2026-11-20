@@ -23,6 +23,8 @@ class TelegramWebhookControllerTest {
     private BusinessSupportService businessSupport;
     private AtomicInteger salesUpserts;
     private InternalRequestService internalRequests;
+    private RecordingStarsGateway starsGateway;
+    private TelegramStarsPaymentService starsPayments;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -37,6 +39,8 @@ class TelegramWebhookControllerTest {
         }, telegram, "-901");
         BotReplyService replies = new BotReplyService(
                 telegram, new ClaudeClient("", "", mapper, request -> new TransportResponse(200, "{}")));
+        starsGateway = new RecordingStarsGateway();
+        starsPayments = new TelegramStarsPaymentService(starsGateway);
         TelegramWebhookController controller = new TelegramWebhookController(
                 SECRET, replies, new InMemoryTelegramUpdateRegistry(),
                 new GroupVoteService((chatId, userId) -> "10".equals(userId)),
@@ -46,7 +50,8 @@ class TelegramWebhookControllerTest {
                     salesUpserts.incrementAndGet();
                     return "9001";
                 }, telegram, "-900", "Demo sales queue"),
-                internalRequests);
+                internalRequests,
+                starsPayments);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -71,6 +76,61 @@ class TelegramWebhookControllerTest {
 
         assertEquals(1, salesUpserts.get());
         assertEquals(sendsAfterSubmit, telegram.sendCalls);
+    }
+
+    @Test
+    void handlesPreCheckoutAndSuccessfulPaymentOnlyOncePerUpdate() throws Exception {
+        send(update(700, "/buy-demo"), SECRET).andExpect(status().isOk());
+        assertTrue(telegram.lastSentMessage.contains("STARS-000001"));
+
+        String checkout = mapper.writeValueAsString(Map.of(
+                "update_id", 701,
+                "pre_checkout_query", Map.of(
+                        "id", "synthetic-query-1",
+                        "from", Map.of("id", 12345),
+                        "invoice_payload", "STARS-000001",
+                        "currency", "XTR",
+                        "total_amount", 50)));
+        send(checkout, SECRET).andExpect(status().isOk());
+        send(checkout, SECRET).andExpect(status().isOk());
+        assertEquals(List.of(new TelegramStarsPaymentService.PreCheckoutAnswer(
+                "synthetic-query-1", true, "")), starsGateway.answers);
+        assertEquals(0, starsPayments.fulfillmentCount());
+
+        String payment = mapper.writeValueAsString(Map.of(
+                "update_id", 702,
+                "message", Map.of(
+                        "message_id", 702,
+                        "chat", Map.of("id", 12345, "type", "private"),
+                        "from", Map.of("id", 12345),
+                        "successful_payment", Map.of(
+                                "invoice_payload", "STARS-000001",
+                                "currency", "XTR",
+                                "total_amount", 50,
+                                "telegram_payment_charge_id", "synthetic-charge-1"))));
+        send(payment, SECRET).andExpect(status().isOk());
+        send(payment, SECRET).andExpect(status().isOk());
+        assertEquals(1, starsPayments.fulfillmentCount());
+        assertTrue(telegram.lastSentMessage.contains("Synthetic digital entitlement granted"));
+    }
+
+    @Test
+    void rejectsPaymentWebhookWithoutApprovedPreCheckout() throws Exception {
+        send(update(710, "/buy-demo"), SECRET).andExpect(status().isOk());
+        String payment = mapper.writeValueAsString(Map.of(
+                "update_id", 711,
+                "message", Map.of(
+                        "message_id", 711,
+                        "chat", Map.of("id", 12345, "type", "private"),
+                        "from", Map.of("id", 12345),
+                        "successful_payment", Map.of(
+                                "invoice_payload", "STARS-000001",
+                                "currency", "XTR",
+                                "total_amount", 50,
+                                "telegram_payment_charge_id", "synthetic-charge-1"))));
+        send(payment, SECRET).andExpect(status().isOk());
+        assertEquals(0, starsPayments.fulfillmentCount());
+        assertTrue(telegram.lastSentMessage.contains("no approved synthetic pre-checkout"));
     }
 
     @Test
@@ -124,7 +184,8 @@ class TelegramWebhookControllerTest {
                 new GrafanaAlertService(replies, "", ""), noFileIntake(),
                 new BusinessSupportService(telegram, "operator-1"::equals),
                 new SalesLeadService(contact -> "9001", telegram, "", "Demo sales queue"),
-                new InternalRequestService(userId -> java.util.Set.of(), telegram, "-901"));
+                new InternalRequestService(userId -> java.util.Set.of(), telegram, "-901"),
+                new TelegramStarsPaymentService(new SimulatedTelegramStarsGateway()));
         MockMvc unconfigured = MockMvcBuilders.standaloneSetup(controller).build();
 
         unconfigured.perform(post("/telegram/webhook")
@@ -298,6 +359,20 @@ class TelegramWebhookControllerTest {
                 throw new AssertionError("Unexpected test file download");
             }
         }, 1_024, java.nio.file.Path.of("build", "unused-file-intake-test"));
+    }
+
+    private static final class RecordingStarsGateway implements TelegramStarsGateway {
+        private final List<TelegramStarsPaymentService.PreCheckoutAnswer> answers = new java.util.ArrayList<>();
+
+        @Override
+        public void answerPreCheckoutQuery(String queryId, boolean approved, String errorMessage) {
+            answers.add(new TelegramStarsPaymentService.PreCheckoutAnswer(queryId, approved, errorMessage));
+        }
+
+        @Override
+        public boolean refundStarPayment(String userId, String chargeId) {
+            return true;
+        }
     }
 
     private static final class RecordingTelegramBotClient extends TelegramBotClient {
