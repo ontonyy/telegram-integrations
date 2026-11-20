@@ -134,6 +134,37 @@ class TelegramWebhookControllerTest {
     }
 
     @Test
+    void retriesResponseAfterDeliveryFailureWithoutRepeatingFulfillment() throws Exception {
+        send(update(720, "/buy-demo"), SECRET).andExpect(status().isOk());
+        send(mapper.writeValueAsString(Map.of(
+                "update_id", 721,
+                "pre_checkout_query", Map.of(
+                        "id", "synthetic-query-delivery",
+                        "from", Map.of("id", 12345),
+                        "invoice_payload", "STARS-000001",
+                        "currency", "XTR",
+                        "total_amount", 50))), SECRET).andExpect(status().isOk());
+        String payment = mapper.writeValueAsString(Map.of(
+                "update_id", 722,
+                "message", Map.of(
+                        "message_id", 722,
+                        "chat", Map.of("id", 12345, "type", "private"),
+                        "from", Map.of("id", 12345),
+                        "successful_payment", Map.of(
+                                "invoice_payload", "STARS-000001",
+                                "currency", "XTR",
+                                "total_amount", 50,
+                                "telegram_payment_charge_id", "synthetic-charge-delivery"))));
+        telegram.failNextSend = true;
+
+        send(payment, SECRET).andExpect(status().isServiceUnavailable());
+        assertEquals(1, starsPayments.fulfillmentCount());
+        send(payment, SECRET).andExpect(status().isOk());
+        assertEquals(1, starsPayments.fulfillmentCount());
+        assertEquals("This synthetic payment was already fulfilled.", telegram.lastSentMessage);
+    }
+
+    @Test
     void internalRequestApprovalRequiresManagerConfirmationAndIgnoresRepeatedCallbackUpdate() throws Exception {
         send(internalUpdate(600, 77, "/internal-help"), SECRET).andExpect(status().isOk());
         send(internalUpdate(601, 77, "/request IT|Synthetic laptop request"), SECRET)
