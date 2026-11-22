@@ -17,6 +17,7 @@
 | [7. Разобраться в TDLib и мостах coding-agent](07-tdlib-and-agents.md) | Сессии TDLib, доступ аккаунта, изоляция агента | Требование создать клиент под аккаунтом или удалённый coding-пилот | J12, J13 |
 | [8. Организовать поддержку через Chatwoot](08-chatwoot-support.md) | Обычный Telegram-бот и Business-бот, передача оператору, история, права и окно ответа | Команде нужен общий support inbox | J05, J17 |
 | [9. Смоделировать оплату Telegram Stars](09-stars-payments.md) | Цикл XTR, срок pre-checkout, выдача после оплаты, идемпотентность, возвраты и поддержка | Нужен прототип до подключения платёжного API | J19 |
+| [10. Добавить Telegram Login OIDC на сайт](10-telegram-login-oidc.md) | OIDC для сайта, authorization code, PKCE, state, nonce, проверка ID token и границы identity | Обычному веб-приложению нужен Telegram как источник identity | J20 |
 
 ## Как проходить шаги
 
@@ -40,7 +41,7 @@
 
 ## Справочные каталоги
 
-- [Пояснения к завершённым issues](../../tasks/completed-issues/README.md) — результат каждой задачи J01–J17.
+- [Пояснения к завершённым issues](../../tasks/completed-issues/README.md) — результат каждой завершённой задачи.
 - [Карта возможностей](../02-research/capability-map.md) — сравнение способов интеграции Telegram.
 - [Обзор реализаций](../02-research/implementation-landscape.md) — продукты и мосты к агентам с границами доказательности.
 - [Пример Java/Spring](../../examples/java-spring/README.md) и [пример TDLib](../../examples/tdlib-java/README.md) — запуск и конфигурация.

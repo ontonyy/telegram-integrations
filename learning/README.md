@@ -17,6 +17,7 @@ Start with Step 1 and continue in order. Each lesson gives you a concept, a code
 | [7. Understand user clients and coding-agent bridges](07-tdlib-and-agents.md) | TDLib sessions, account access, agent isolation | A real user-client requirement or remote development pilot | J12, J13 |
 | [8. Run customer support through Chatwoot](08-chatwoot-support.md) | Standard Telegram bot vs Business bot, operator handoff, stored history, rights and reply window | A team needs a shared support inbox | J05, J17 |
 | [9. Simulate Telegram Stars payments](09-stars-payments.md) | XTR invoice lifecycle, pre-checkout deadline, fulfillment, idempotency, refunds and support | A product needs a payment-flow prototype before provider wiring | J19 |
+| [10. Add Telegram Login OIDC to a website](10-telegram-login-oidc.md) | Website OIDC, authorization code, PKCE, state, nonce, ID-token validation and identity boundaries | A conventional web app needs Telegram as an identity provider | J20 |
 
 ## How to study each step
 
@@ -40,7 +41,7 @@ The Java examples are implemented and locally testable with synthetic payloads, 
 
 ## Reference catalogs
 
-- [Completed issue guides](../tasks/completed-issues/README.md) — what each J01–J17 issue delivered.
+- [Completed issue guides](../tasks/completed-issues/README.md) — what each completed issue delivered.
 - [Capability map](../02-research/capability-map.md) — comparison of Telegram integration surfaces.
 - [Implementation landscape](../02-research/implementation-landscape.md) — products and agent bridges, with evidence boundaries.
 - [Java/Spring example](../examples/java-spring/README.md) and [TDLib example](../examples/tdlib-java/README.md) — run and configuration instructions.

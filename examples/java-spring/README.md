@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This Java 25 / Spring Boot app contains fourteen patterns:
+This Java 25 / Spring Boot app contains fifteen patterns:
 
 1. Bot API webhook with a shared-secret header, a configurable request-body limit, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -18,6 +18,7 @@ This Java 25 / Spring Boot app contains fourteen patterns:
 12. A mock-friendly Chatwoot support handoff choreography seam: synthetic conversation assignment, allowlisted assigned-operator replies, and a recording fake. Chatwoot's built-in Telegram channel is the actual Telegram integration; this Java seam has no Chatwoot/Telegram HTTP client, webhook endpoint, or durable store and is not needed when agents work directly in Chatwoot.
 13. A shared Mini App availability board with signed group launch context, an exact chat/user allowlist, per-user contributions, aggregated slot counts, idempotent retries, and version conflicts.
 14. A synthetic Telegram Stars lifecycle with private demo order intents, pre-checkout validation, successful-payment-only fulfillment, duplicate handling, owner-authorized refunds, and payment support guidance. Its in-memory gateway never creates an invoice, calls Telegram, or moves Stars.
+15. An optional Telegram Login OIDC walkthrough for a normal website, backed by Spring Security Authorization Code with PKCE, server-side state/nonce, minimal `openid` scope, and a subject-only identity response. It is separate from Mini App `initData` validation and disabled by default.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
 
@@ -26,6 +27,14 @@ The examples share one service so the data boundaries are visible. They do not i
 Use `/buy-demo` in a private chat to create an in-memory `STARS-...` order reference and `/paysupport` to see the support boundary. The app never sends `sendInvoice`, so a real Telegram client cannot produce a payment for this demo. Service tests inject synthetic `pre_checkout_query` and `successful_payment` values through fake gateways. Pre-checkout checks the order owner, `XTR`, exact amount and expiry; only a valid successful-payment update after approval fulfills the synthetic entitlement. Duplicate updates and charge IDs do not fulfill twice. `/refund-demo <order-reference>` is owner-scoped and calls only the fake refund adapter.
 
 Run focused tests with `./gradlew test --tests example.telegram.TelegramStarsPaymentServiceTest --tests example.telegram.TelegramWebhookControllerTest`. Order and idempotency state are process-local, bounded and lost on restart; multiple instances do not share state. The ten-second pre-checkout budget is a local clock check, not a measured Telegram round trip. This is a teaching example, not a production payments integration. See [J19](../../tasks/completed-issues/J19.md) and the [Stars lesson](../../learning/09-stars-payments.md).
+
+### Telegram Login OIDC for a website
+
+Open `/telegram-login-demo.html` for the normal website login walkthrough. The feature is disabled by default; enable it only in a separately approved setup with server-side `TELEGRAM_LOGIN_OIDC_CLIENT_ID` and `TELEGRAM_LOGIN_OIDC_CLIENT_SECRET`. The issuer defaults to `https://oauth.telegram.org`; scopes default to `openid` only. Redirect URI defaults to `{baseUrl}/login/oauth2/code/telegram`; set `TELEGRAM_LOGIN_OIDC_REDIRECT_URI` to a fixed URI when the public origin cannot be derived safely. Telegram requires registering the site origin and exact callback URI with @BotFather before a live login. `profile`, `phone`, or `telegram:bot_access` must be requested only when the application has a clear need and the user explicitly authorizes those scopes.
+
+Spring Security handles the OIDC authorization request, state and nonce correlation, PKCE S256, redirect URI reuse, JWKS signature verification, issuer, audience, and token time validation. Telegram Login does not expose a separate UserInfo endpoint; the fake issuer test confirms this example can use the verified ID token without one. `/login-demo/me` returns only the authenticated `sub`; a Telegram subject is identity, not an application role or authorization grant. This login uses a server-side HTTP session, so a real multi-instance site needs shared session storage or a suitable affinity policy and an independent session/security review. Existing webhook and Mini App validation paths retain their own boundaries.
+
+Run the local synthetic callback tests with `./gradlew test --tests example.telegram.TelegramLoginOidcSecurityTest`. They start a loopback-only issuer and use synthetic RSA keys, claims, client credentials and callbacks; they make no external identity-provider or Telegram request. See [J20](../../tasks/completed-issues/J20.md) and the [website login lesson](../../learning/10-telegram-login-oidc.md).
 
 ### Chatwoot Telegram customer support
 

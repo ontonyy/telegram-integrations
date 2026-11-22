@@ -1,8 +1,8 @@
 # Completed Java integration issues
 
-**Checked:** 2026-11-15. These notes explain what each closed issue delivered, how the example works, and where the pattern fits in a real project. They describe repository code and its local verification; they do not imply that a live Telegram, CRM, or vendor account was connected.
+**Checked:** 2026-11-22. These notes explain what each closed issue delivered, how the example works, and where the pattern fits in a real project. They describe repository code and its local verification; they do not imply that a live Telegram, CRM, or vendor account was connected.
 
-For a learning sequence organized by concept (rather than issue number), start with the [Telegram integrations learning path](../../learning/README.md). The pages below are implementation references that complement its eight lessons.
+For a learning sequence organized by concept (rather than issue number), start with the [Telegram integrations learning path](../../learning/README.md). The pages below are implementation references that complement its ten lessons.
 
 Russian versions are in [`ru/tasks/completed-issues`](../../ru/tasks/completed-issues/README.md).
 
@@ -27,5 +27,6 @@ Russian versions are in [`ru/tasks/completed-issues`](../../ru/tasks/completed-i
 | J17 | Chatwoot Telegram customer-support handoff walkthrough and mock seam | [J17](J17.md) |
 | J18 | Shared group Mini App, exact application allowlist, and versioned availability updates | [J18](J18.md) |
 | J19 | Synthetic Telegram Stars checkout, fulfillment, refund, and support lifecycle | [J19](J19.md) |
+| J20 | Telegram Login OIDC for a conventional Java web application | [J20](J20.md) |
 
 Start with [the Java/Spring README](../../examples/java-spring/README.md) for commands, configuration names, and the shared demo boundaries. J13 is a research decision, not a runnable bridge. J12 is isolated and is not part of the normal Spring startup. J17's built-in Chatwoot Telegram channel is separate from its fake-backed Java choreography seam.
