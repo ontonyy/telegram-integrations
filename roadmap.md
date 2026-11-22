@@ -43,9 +43,9 @@ Be able to explain where metadata is checked, when the download starts, what can
 
 The lease is an OS file lock held for the lifetime of an upload. The maintenance lock prevents another cooperating process from racing workspace setup or cleanup. Cleanup uses lock ownership, rather than file age, to decide whether a workspace may be abandoned.
 
-Next, add or run a focused test with **two separate JVM processes** sharing a temporary root: one process holds an upload lease while the other starts an intake. Confirm the first process's directory and synthetic partial content remain intact. Then simulate process termination and confirm a later intake can remove the released workspace. Do not use Telegram credentials or real files for this check.
+The focused `preservesAndRecoversWorkspaceLeasedByAnotherJvm` test now starts separate JVMs against one temporary root. It confirms that an intake preserves a process-held lease and its synthetic partial content, that a later intake removes the workspace after its process is forcibly terminated, and that cleanup still preserves a different active JVM's workspace. The test uses no Telegram credentials or real files.
 
-Before using a shared or network-mounted temporary directory, verify that the actual filesystem provides reliable cross-process Java `FileLock` semantics. If it does not, do not rely on this recovery mechanism there. The local tests do not establish this filesystem property.
+This only demonstrates lock behavior on the filesystem used by the local test run. Before using a shared or network-mounted temporary directory, verify that the actual deployment filesystem provides reliable cross-process Java `FileLock` semantics. If it does not, do not rely on this recovery mechanism there. The local test does not establish this filesystem property.
 
 ### 4. Run the repository's documented Java checks
 

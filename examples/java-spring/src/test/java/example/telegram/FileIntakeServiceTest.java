@@ -5,12 +5,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.nio.charset.StandardCharsets;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -145,6 +153,100 @@ class FileIntakeServiceTest {
         Files.delete(leasePath);
         Files.delete(active);
         assertNoUploadWorkspaces();
+    }
+
+    @Test
+    void preservesAndRecoversWorkspaceLeasedByAnotherJvm() throws Exception {
+        Path active = Files.createDirectory(tempDir.resolve("upload-child-process"));
+        Path leasePath = Files.createFile(active.resolve(".lease"));
+        Path partial = Files.createFile(active.resolve("content-partial.log"));
+        Path ready = tempDir.resolve("child-ready");
+        Path childOutput = tempDir.resolve("child-output.log");
+        List<Process> children = new ArrayList<>();
+        try {
+            Process crashedLeaseHolder = startLeaseHolder(leasePath, partial, ready, childOutput);
+            children.add(crashedLeaseHolder);
+            FileIntakeService.Result whileLeased = service().process(document("trace.log", "text/plain", 20));
+
+            assertTrue(whileLeased.accepted());
+            assertTrue(Files.exists(active));
+            assertEquals("synthetic active upload", Files.readString(partial));
+
+            crashedLeaseHolder.destroyForcibly();
+            assertTrue(crashedLeaseHolder.waitFor(5, TimeUnit.SECONDS), "Lease holder process did not terminate");
+
+            Path secondActive = Files.createDirectory(tempDir.resolve("upload-new-child-process"));
+            Path secondLeasePath = Files.createFile(secondActive.resolve(".lease"));
+            Path secondPartial = Files.createFile(secondActive.resolve("content-partial.log"));
+            Process secondLeaseHolder = startLeaseHolder(secondLeasePath, secondPartial,
+                    tempDir.resolve("second-child-ready"), tempDir.resolve("second-child-output.log"));
+            children.add(secondLeaseHolder);
+
+            FileIntakeService.Result afterCrash = service().process(document("trace.log", "text/plain", 20));
+
+            assertTrue(afterCrash.accepted());
+            assertFalse(Files.exists(active), "A later intake should remove the crashed process's workspace");
+            assertTrue(Files.exists(secondActive), "Cleanup must preserve another process's active workspace");
+            assertEquals("synthetic active upload", Files.readString(secondPartial));
+
+            secondLeaseHolder.destroyForcibly();
+            assertTrue(secondLeaseHolder.waitFor(5, TimeUnit.SECONDS), "Second lease holder process did not terminate");
+
+            FileIntakeService.Result afterSecondCrash = service().process(document("trace.log", "text/plain", 20));
+
+            assertTrue(afterSecondCrash.accepted());
+            assertFalse(Files.exists(secondActive), "A later intake should recover the second abandoned workspace");
+            assertNoUploadWorkspaces();
+        } finally {
+            for (Process child : children) {
+                if (child.isAlive()) {
+                    child.destroyForcibly();
+                    child.waitFor(5, TimeUnit.SECONDS);
+                }
+            }
+        }
+    }
+
+    private Process startLeaseHolder(Path leasePath, Path partial, Path ready, Path childOutput) throws Exception {
+        Process child = null;
+        try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
+            tempDir.register(watchService, StandardWatchEventKinds.ENTRY_CREATE);
+            Path testClasses = Path.of(FileIntakeServiceTest.class.getProtectionDomain()
+                    .getCodeSource().getLocation().toURI());
+            String javaExecutable = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
+            Path java = Path.of(System.getProperty("java.home"), "bin", javaExecutable);
+            child = new ProcessBuilder(java.toString(), "-cp", testClasses.toString(),
+                    "example.telegram.FileIntakeLeaseProcess", leasePath.toString(), partial.toString(), ready.toString())
+                    .redirectErrorStream(true)
+                    .redirectOutput(childOutput.toFile())
+                    .start();
+            awaitFile(ready, child, watchService, childOutput);
+            return child;
+        } catch (Exception | Error exception) {
+            if (child != null && child.isAlive()) {
+                child.destroyForcibly();
+                child.waitFor(5, TimeUnit.SECONDS);
+            }
+            throw exception;
+        }
+    }
+
+    private void awaitFile(Path ready, Process child, WatchService watchService, Path childOutput)
+            throws Exception {
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (!Files.exists(ready)) {
+            if (!child.isAlive()) {
+                throw new AssertionError("Lease holder exited before acquiring its lease: "
+                        + Files.readString(childOutput));
+            }
+            long remaining = deadline - System.nanoTime();
+            WatchKey key = remaining <= 0 ? null : watchService.poll(remaining, TimeUnit.NANOSECONDS);
+            if (key == null) {
+                throw new AssertionError("Timed out waiting for lease holder: " + Files.readString(childOutput));
+            }
+            key.pollEvents();
+            key.reset();
+        }
     }
 
     @Test

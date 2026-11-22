@@ -28,5 +28,6 @@ Russian versions are in [`ru/tasks/completed-issues`](../../ru/tasks/completed-i
 | J18 | Shared group Mini App, exact application allowlist, and versioned availability updates | [J18](J18.md) |
 | J19 | Synthetic Telegram Stars checkout, fulfillment, refund, and support lifecycle | [J19](J19.md) |
 | J20 | Telegram Login OIDC for a conventional Java web application | [J20](J20.md) |
+| J21 | Cross-JVM verification of J10 upload lease recovery | [J21](J21.md) |
 
 Start with [the Java/Spring README](../../examples/java-spring/README.md) for commands, configuration names, and the shared demo boundaries. J13 is a research decision, not a runnable bridge. J12 is isolated and is not part of the normal Spring startup. J17's built-in Chatwoot Telegram channel is separate from its fake-backed Java choreography seam.
