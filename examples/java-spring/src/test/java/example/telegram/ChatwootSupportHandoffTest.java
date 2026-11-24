@@ -15,7 +15,7 @@ class ChatwootSupportHandoffTest {
 
     @Test
     void customerConversationCanBeAssignedAndRepliedToByTheAssignedOperator() {
-        assertTrue(handoff.acceptCustomerMessage(481, "telegram-contact-demo", "Synthetic order question"));
+        assertTrue(handoff.acceptCustomerMessage(481, "telegram-contact-demo"));
         assertTrue(handoff.assign(481, "agent-7").accepted());
         assertTrue(handoff.reply(481, "agent-7", "Synthetic reply for order DEMO-42").accepted());
 
@@ -25,7 +25,7 @@ class ChatwootSupportHandoffTest {
 
     @Test
     void replyFromAnOperatorOtherThanTheAssignedOperatorNeverReachesChatwoot() {
-        assertTrue(handoff.acceptCustomerMessage(481, "telegram-contact-demo", "Synthetic order question"));
+        assertTrue(handoff.acceptCustomerMessage(481, "telegram-contact-demo"));
         assertTrue(handoff.assign(481, "agent-7").accepted());
 
         assertFalse(handoff.reply(481, "agent-9", "Synthetic unauthorized reply").accepted());
@@ -35,10 +35,10 @@ class ChatwootSupportHandoffTest {
 
     @Test
     void unknownOperatorUnassignedConversationAndInvalidReplyNeverReachChatwoot() {
-        assertFalse(handoff.acceptCustomerMessage(481, "telegram-contact-demo", "  "));
+        assertFalse(handoff.acceptCustomerMessage(481, " "));
         assertFalse(handoff.assign(481, "agent-9").accepted());
         assertFalse(handoff.reply(481, "agent-7", "Must not send").accepted());
-        assertTrue(handoff.acceptCustomerMessage(481, "telegram-contact-demo", "Synthetic order question"));
+        assertTrue(handoff.acceptCustomerMessage(481, "telegram-contact-demo"));
         assertTrue(handoff.assign(481, "agent-7").accepted());
         assertFalse(handoff.reply(481, "agent-9", "Must not send").accepted());
         assertFalse(handoff.reply(481, "agent-7", "  ").accepted());

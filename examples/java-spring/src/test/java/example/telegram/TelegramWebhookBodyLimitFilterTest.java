@@ -52,6 +52,70 @@ class TelegramWebhookBodyLimitFilterTest {
     }
 
     @Test
+    void rejectsChatwootBodyOverItsSeparateLimitBeforeCallingTheEndpoint() throws Exception {
+        MockMvc chatwootMvc = MockMvcBuilders.standaloneSetup(endpoint)
+                .addFilters(new TelegramWebhookBodyLimitFilter(MAX_BODY_BYTES, 12))
+                .build();
+
+        chatwootMvc.perform(post("/chatwoot/webhook").content("0123456789012"))
+                .andExpect(status().isContentTooLarge());
+
+        assertEquals(0, endpoint.calls.get());
+    }
+
+    @Test
+    void rejectsOversizedChatwootBodyWhenContentLengthIsUnavailable() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/chatwoot/webhook");
+        request.setContent("0123456789012".getBytes(StandardCharsets.UTF_8));
+        HttpServletRequest withoutContentLength = new HttpServletRequestWrapper(request) {
+            @Override
+            public int getContentLength() {
+                return -1;
+            }
+
+            @Override
+            public long getContentLengthLong() {
+                return -1;
+            }
+        };
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new TelegramWebhookBodyLimitFilter(MAX_BODY_BYTES, 12).doFilter(
+                withoutContentLength, response, (servletRequest, servletResponse) -> endpoint.calls.incrementAndGet());
+
+        assertEquals(HttpStatus.CONTENT_TOO_LARGE.value(), response.getStatus());
+        assertEquals(0, endpoint.calls.get());
+    }
+
+    @Test
+    void rejectsDeclaredOversizedChatwootBodyBeforeReadingIt() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/chatwoot/webhook");
+        HttpServletRequest declaredOversized = new HttpServletRequestWrapper(request) {
+            @Override
+            public int getContentLength() {
+                return 13;
+            }
+
+            @Override
+            public long getContentLengthLong() {
+                return 13;
+            }
+
+            @Override
+            public ServletInputStream getInputStream() {
+                throw new AssertionError("The filter must reject before reading the body");
+            }
+        };
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new TelegramWebhookBodyLimitFilter(MAX_BODY_BYTES, 12).doFilter(
+                declaredOversized, response, (servletRequest, servletResponse) -> endpoint.calls.incrementAndGet());
+
+        assertEquals(HttpStatus.CONTENT_TOO_LARGE.value(), response.getStatus());
+        assertEquals(0, endpoint.calls.get());
+    }
+
+    @Test
     void rejectsOversizedBodyWhenContentLengthIsUnavailable() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/telegram/webhook");
         request.setContent("01234567890".getBytes(StandardCharsets.UTF_8));
@@ -138,7 +202,7 @@ class TelegramWebhookBodyLimitFilterTest {
     private static final class RecordingEndpoint {
         private final AtomicInteger calls = new AtomicInteger();
 
-        @PostMapping("/telegram/webhook")
+        @PostMapping({"/telegram/webhook", "/chatwoot/webhook"})
         ResponseEntity<Void> receive(@RequestBody String body) {
             calls.incrementAndGet();
             return ResponseEntity.ok().build();

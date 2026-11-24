@@ -41,3 +41,11 @@ tasks.register('notifyTelegram', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set('example.telegram.CiNotificationCommand')
 }
+
+tasks.register('demoChatwootSupport', JavaExec) {
+    group = 'application'
+    description = 'Run a synthetic, offline Chatwoot webhook and support handoff walkthrough.'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('example.telegram.ChatwootSupportDemoCommand')
+}

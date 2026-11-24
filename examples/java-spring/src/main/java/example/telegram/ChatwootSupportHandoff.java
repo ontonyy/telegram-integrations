@@ -22,9 +22,8 @@ public final class ChatwootSupportHandoff {
     }
 
     /** Called only after a trusted Chatwoot webhook identifies an incoming customer message. */
-    public synchronized boolean acceptCustomerMessage(long conversationId, String contactId, String content) {
-        if (conversationId <= 0 || contactId == null || contactId.isBlank()
-                || content == null || content.isBlank()) {
+    public synchronized boolean acceptCustomerMessage(long conversationId, String contactId) {
+        if (conversationId <= 0 || contactId == null || contactId.isBlank()) {
             return false;
         }
         // Chatwoot remains the message system of record; this seam keeps only the conversation reference.

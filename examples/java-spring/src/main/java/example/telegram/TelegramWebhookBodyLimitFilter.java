@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -21,13 +22,22 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public final class TelegramWebhookBodyLimitFilter extends OncePerRequestFilter {
     private static final int PROVIDER_WEBHOOK_MAX_BODY_BYTES = 1_000_000;
     private final int maxBodyBytes;
+    private final int maxChatwootBodyBytes;
 
+    @Autowired
     public TelegramWebhookBodyLimitFilter(
-            @Value("${telegram.webhook.max-body-bytes:1048576}") int maxBodyBytes) {
-        if (maxBodyBytes < 1 || maxBodyBytes == Integer.MAX_VALUE) {
+            @Value("${telegram.webhook.max-body-bytes:1048576}") int maxBodyBytes,
+            @Value("${chatwoot.webhook.max-body-bytes:128000}") int maxChatwootBodyBytes) {
+        if (maxBodyBytes < 1 || maxBodyBytes == Integer.MAX_VALUE
+                || maxChatwootBodyBytes < 1 || maxChatwootBodyBytes == Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Webhook body limit must be between 1 and 2147483646 bytes");
         }
         this.maxBodyBytes = maxBodyBytes;
+        this.maxChatwootBodyBytes = maxChatwootBodyBytes;
+    }
+
+    TelegramWebhookBodyLimitFilter(int maxBodyBytes) {
+        this(maxBodyBytes, 128_000);
     }
 
     @Override
@@ -35,6 +45,7 @@ public final class TelegramWebhookBodyLimitFilter extends OncePerRequestFilter {
         String path = requestPath(request);
         return !"POST".equals(request.getMethod())
                 || !("/telegram/webhook".equals(path)
+                        || "/chatwoot/webhook".equals(path)
                         || "/jira/webhook".equals(path)
                         || "/grafana/webhook".equals(path));
     }
@@ -64,9 +75,11 @@ public final class TelegramWebhookBodyLimitFilter extends OncePerRequestFilter {
     }
 
     private int requestLimit(HttpServletRequest request) {
-        return "/telegram/webhook".equals(requestPath(request))
-                ? maxBodyBytes
-                : PROVIDER_WEBHOOK_MAX_BODY_BYTES;
+        return switch (requestPath(request)) {
+            case "/telegram/webhook" -> maxBodyBytes;
+            case "/chatwoot/webhook" -> maxChatwootBodyBytes;
+            default -> PROVIDER_WEBHOOK_MAX_BODY_BYTES;
+        };
     }
 
     private String requestPath(HttpServletRequest request) {

@@ -37,6 +37,15 @@ sequenceDiagram
 
 Если позже подключите Java-сервис к Chatwoot, храните API-токены в secret manager или переменных окружения, аутентифицируйте оператора в своём backend и проверяйте подлинность webhook Chatwoot до доверия событию. Не используйте integration token так, чтобы ответ выглядел отправленным другим оператором. Для локальных тестов нужны только синтетические данные; например, `CHATWOOT_BASE_URL`, `CHATWOOT_ACCOUNT_ID`, `CHATWOOT_API_ACCESS_TOKEN` и allowlist ID операторов передаются процессу из окружения. Значения здесь не сохранены.
 
+
+## J24: офлайн-лаборатория подписанного webhook
+
+В Java-примере появился необязательный шов `POST /chatwoot/webhook` для **исходящего webhook Chatwoot**. Встроенный Telegram inbox Chatwoot по-прежнему владеет Telegram webhook и доставкой сообщений в канал; не настраивайте в этом приложении `getUpdates` или второй Telegram webhook для того же бота. Синтетический сценарий запускается из `examples/java-spring` командой `./gradlew demoChatwootSupport`. Он использует фиксированные тестовые ID и in-memory recorder, не выполняя сетевых запросов.
+
+Endpoint проверяет `X-Chatwoot-Signature` по точным исходным байтам тела с подписанным timestamp и настроенным `CHATWOOT_WEBHOOK_SECRET`, отклоняет timestamp за пределами пяти минут и ограничивает тело до его полной материализации Spring. Принимаются только входящие текстовые события `message_created` от контакта. Тело временно разбирается для маршрутизации ссылки на беседу; текст не передаётся в шов передачи поддержки или fake recorder. Повтор определяется по account ID и message ID из подписанного тела. `X-Chatwoot-Delivery` — необязательные метаданные корреляции; заголовок не входит в подписываемые данные и ключ дедупликации.
+
+Это учебная граница, а не production webhook-сервис: ID событий и состояние передачи ограничены и существуют только в процессе, поэтому перезапуск или несколько экземпляров не обеспечивают долговременную идемпотентность; нет API-клиента Chatwoot, endpoint-аутентификации операторов, постоянной очереди, настройки провайдера или живой проверки совместимости. Реальному развертыванию потребуются общая транзакционная дедупликация, независимая аутентификация действий операторов, политика хранения и сквозная проверка. Целевые тесты: `./gradlew test --tests example.telegram.ChatwootWebhookSignatureValidatorTest --tests example.telegram.ChatwootWebhookControllerTest --tests example.telegram.ChatwootWebhookProcessorTest --tests example.telegram.ChatwootSupportHandoffTest --tests example.telegram.TelegramWebhookBodyLimitFilterTest`. См. [J24](../tasks/completed-issues/J24.md).
+
 ## Прочитать и посмотреть
 
 1. Изучите официальные страницы Chatwoot: [настройка Telegram-канала](https://www.chatwoot.com/hc/user-guide/articles/1677838569-how-to-setup-a-telegram-channel) и [обзор каналов и inbox](https://www.chatwoot.com/hc/user-guide/articles/1677492191-adding-inboxes).
