@@ -49,3 +49,11 @@ tasks.register('demoChatwootSupport', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set('example.telegram.ChatwootSupportDemoCommand')
 }
+
+tasks.register('demoJiraBlocksRouting', JavaExec) {
+    group = 'application'
+    description = 'Run a synthetic, offline Jira Blocks routing policy walkthrough.'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('example.telegram.JiraBlocksRoutingDemoCommand')
+}
