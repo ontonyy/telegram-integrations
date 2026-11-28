@@ -11,13 +11,14 @@ import java.util.Set;
 
 /** Throwaway, process-local routing policy for synthetic Jira Blocks relations. */
 public final class JiraBlocksRoutingPolicy {
-    private final FakeNotificationSink sink;
+    private final JiraBlocksNotificationSink sink;
     private final Map<String, RelationProgress> relationProgress = new HashMap<>();
+    private final Set<String> suppressedBeforeStart = new LinkedHashSet<>();
     private final Map<String, NotifiedRelation> notifiedRelations = new HashMap<>();
     private final Map<String, Episode> openEpisodes = new HashMap<>();
     private long nextEpisodeNumber = 1;
 
-    public JiraBlocksRoutingPolicy(FakeNotificationSink sink) {
+    public JiraBlocksRoutingPolicy(JiraBlocksNotificationSink sink) {
         this.sink = sink;
     }
 
@@ -33,6 +34,10 @@ public final class JiraBlocksRoutingPolicy {
         Map<String, Set<Team>> targetTeamsByTarget = new HashMap<>();
 
         for (Relation relation : batch) {
+            if (suppressedBeforeStart.contains(relation.id())) {
+                suppressed++;
+                continue;
+            }
             RelationProgress previous = relationProgress.get(relation.id());
             if (previous != null && relation.eventVersion() < previous.version()) {
                 stale++;
@@ -50,6 +55,7 @@ public final class JiraBlocksRoutingPolicy {
             relationProgress.put(relation.id(), new RelationProgress(relation.eventVersion(), relation.state()));
 
             if (relation.state() == State.DONE_BEFORE_START) {
+                suppressedBeforeStart.add(relation.id());
                 suppressed++;
                 continue;
             }
@@ -65,6 +71,18 @@ public final class JiraBlocksRoutingPolicy {
                 notified.episode().activeRelationIds.remove(relation.id());
                 lifecycle++;
                 closeIfEmpty(notified.episode());
+                continue;
+            }
+
+            if (relation.state() == State.STARTED) {
+                NotifiedRelation notified = notifiedRelations.get(relation.id());
+                if (notified == null) {
+                    suppressed++;
+                    continue;
+                }
+                sink.recordLifecycleUpdate(notified.episode().id, notified.recipient(),
+                        notified.targetKey(), relation.id(), relation.state());
+                lifecycle++;
                 continue;
             }
 
@@ -186,7 +204,7 @@ public final class JiraBlocksRoutingPolicy {
 
     public enum Team { BE, FE, UNKNOWN, DUAL }
 
-    public enum State { ACTIVE, RESOLVED, REMOVED, DONE, DONE_BEFORE_START }
+    public enum State { ACTIVE, STARTED, RESOLVED, REMOVED, DONE, DONE_BEFORE_START }
 
     public record Relation(
             String id,

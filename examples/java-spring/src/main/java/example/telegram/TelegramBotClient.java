@@ -63,6 +63,28 @@ public class TelegramBotClient implements BusinessMessageSender {
         sendMethodOrLog("sendMessage", payload);
     }
 
+    public long sendHtmlAndGetMessageId(String chatId, String html) {
+        if (!sendEnabled) {
+            System.out.println("DRY RUN: Telegram delivery is disabled (message and destination omitted)");
+            return 0;
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chat_id", chatId);
+        payload.put("text", html);
+        payload.put("parse_mode", "HTML");
+        JsonNode response = sendMethod("sendMessage", payload);
+        return response.path("result").path("message_id").asLong(0);
+    }
+
+    public void editHtmlOrLog(String chatId, long messageId, String html) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chat_id", chatId);
+        payload.put("message_id", messageId);
+        payload.put("text", html);
+        payload.put("parse_mode", "HTML");
+        sendMethodOrLog("editMessageText", payload);
+    }
+
     public void sendMessageWithInlineKeyboardOrLog(
             String chatId, String text, List<List<InlineButton>> keyboard) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -115,6 +137,29 @@ public class TelegramBotClient implements BusinessMessageSender {
         } catch (TelegramBotApiException exception) {
             throw exception;
         } catch (Exception exception) {
+            throw new IllegalStateException("Telegram send failed", exception);
+        }
+    }
+
+    private JsonNode sendMethod(String method, Map<String, Object> payload) {
+        if (!sendEnabled) throw new IllegalStateException("Telegram delivery is disabled");
+        if (token.isBlank()) throw new IllegalStateException("TELEGRAM_BOT_TOKEN is required when sends are enabled");
+        try {
+            String body = mapper.writeValueAsString(payload);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiBaseUrl.replaceAll("/+$", "") + "/bot" + token + "/" + method))
+                    .timeout(requestTimeout).header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body)).build();
+            TransportResponse response = transport.send(request);
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new TelegramBotApiException(response.statusCode(), readRetryAfter(response.body()));
+            }
+            return mapper.readTree(response.body());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Telegram send was interrupted", exception);
+        } catch (Exception exception) {
+            if (exception instanceof IllegalStateException state) throw state;
             throw new IllegalStateException("Telegram send failed", exception);
         }
     }

@@ -2,7 +2,7 @@
 
 **Status:** local demonstration; no Telegram account is connected and no messages have been sent.
 
-This Java 25 / Spring Boot app contains fifteen patterns:
+This Java 25 / Spring Boot app contains sixteen patterns:
 
 1. Bot API webhook with a shared-secret header, a configurable request-body limit, a narrow command allowlist and dry-run replies.
 2. A working Telegram Mini App request form with server-verified `initData`, owner-scoped status lookup and synthetic state.
@@ -19,6 +19,7 @@ This Java 25 / Spring Boot app contains fifteen patterns:
 13. A shared Mini App availability board with signed group launch context, an exact chat/user allowlist, per-user contributions, aggregated slot counts, idempotent retries, and version conflicts.
 14. A synthetic Telegram Stars lifecycle with private demo order intents, pre-checkout validation, successful-payment-only fulfillment, duplicate handling, owner-authorized refunds, and payment support guidance. Its in-memory gateway never creates an invoice, calls Telegram, or moves Stars.
 15. An optional Telegram Login OIDC walkthrough for a normal website, backed by Spring Security Authorization Code with PKCE, server-side state/nonce, minimal `openid` scope, and a subject-only identity response. It is separate from Mini App `initData` validation and disabled by default.
+16. An optional Jira `Blocks` webhook router with read-only issue lookup, a pure routing policy, and team-specific Telegram updates; Jira routing and Telegram sending are disabled by default.
 
 The examples share one service so the data boundaries are visible. They do not include credentials, a live Telegram fixture, chat history indexing, TDLib, or any real send. Text-file intake is included in this Spring sample; the separate [optional TDLib Java example](../tdlib-java/README.md) is not part of Spring startup and requires an explicit native/JNI setup. See [the task overview](../../tasks/1.md) for scope and verification boundaries.
 
@@ -287,3 +288,11 @@ The J24 offline webhook lab is a separate optional seam: `POST /chatwoot/webhook
 The synthetic per-relation event version is a monotonically increasing integer: older versions are ignored, the same version is a duplicate, and a newer version with unchanged state does not backfill a notice. This is a local test assumption, not a claim about Jira's event contract. The fake stores synthetic references and counters only; the demo prints scenario labels and aggregate counts, never notification payloads.
 
 Run the focused policy tests with `./gradlew test --tests example.telegram.JiraBlocksRoutingPolicyTest`. This is throwaway, process-local example code, not a Jira or Telegram integration. It makes no network calls, uses no credentials, and does not backfill relations. Live routing and any Telegram effect remain unknown; the reported need is based on one internal participant and is not measured by this example.
+
+### Optional Jira `Blocks` webhook path (disabled by default)
+
+The optional `/jira/webhook` adapter also handles Jira Cloud `issuelink_created`, `issuelink_deleted`, and issue status events. Jira documents link events, signed webhooks, and delivery identifiers in its [Cloud webhook reference](https://developer.atlassian.com/cloud/jira/platform/webhooks/); issue fields are available through its [Issue Links REST API](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-links/) and issue REST resource. These references were checked 2026-11-28; this checkout has not been connected to a Jira tenant.
+
+Routing requires `JIRA_BLOCKS_ENABLED=true`, `JIRA_PROJECT_KEY`, read-only Jira credentials (`JIRA_API_EMAIL`, `JIRA_API_TOKEN`), and recipient IDs `JIRA_BLOCKS_BE_CHAT_ID` / `JIRA_BLOCKS_FE_CHAT_ID`. Actual Telegram delivery additionally requires `TELEGRAM_SEND_ENABLED=true` and `TELEGRAM_BOT_TOKEN`. No credentials or chat IDs are supplied here. The adapter reads only project, labels, status category, and issue type; messages contain issue keys and lifecycle state, never summaries, descriptions, comments, or webhook payloads. Team labels must be exactly `be` or `fe`; unknown/dual labels and issues outside the configured project are suppressed. Epic links are conservatively suppressed. Only outward `Blocks` links are considered, and the blocked target determines the recipient.
+
+Routing state and Telegram message IDs are process-local, lost on restart, and not shared between instances. Link events timestamped before the process started are ignored, so the adapter does not perform an initial relation sweep or backfill. There is no durable outbox: ambiguous send failures can lose a notice or cause a duplicate on retry. This is a reviewable implementation sketch, not a reliable operational integration. The signature verifier and synthetic service/policy tests are local evidence only; no live Jira webhook, Jira read, or Telegram message was verified. The offline `demoJiraBlocksRouting` remains fake-backed and network-free. Telegram effect and live routing remain `UNKNOWN`.

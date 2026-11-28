@@ -63,6 +63,8 @@ class JiraBlocksRoutingPolicyTest {
         assertThat(policy.route(List.of(doneBeforeStart)).notices()).isZero();
         assertThat(policy.route(List.of(doneBeforeStart.withState(JiraBlocksRoutingPolicy.State.RESOLVED)
                 .withEventVersion(2))).lifecycleUpdates()).isZero();
+        assertThat(policy.route(List.of(doneBeforeStart.withState(JiraBlocksRoutingPolicy.State.ACTIVE)
+                .withEventVersion(3))).notices()).isZero();
     }
 
     @Test

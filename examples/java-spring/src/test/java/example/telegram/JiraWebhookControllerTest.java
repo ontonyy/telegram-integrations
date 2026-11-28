@@ -24,14 +24,22 @@ class JiraWebhookControllerTest {
     private final ObjectMapper mapper = new ObjectMapper();
     private RecordingTelegramClient telegram;
     private MockMvc mockMvc;
+    private RecordingFakeNotificationSink blocksSink;
 
     @BeforeEach
     void setUp() {
         telegram = new RecordingTelegramClient();
         JiraIssueNotificationService notifications = new JiraIssueNotificationService(
                 telegram, "-123456", "DEMO", "Bug,Task", "In Progress,Done", "https://jira.example.test");
+        blocksSink = new RecordingFakeNotificationSink();
+        JiraBlocksWebhookService blocks = new JiraBlocksWebhookService(true, "DEMO", issueId -> switch (issueId) {
+            case "101" -> new JiraIssueDetails("101", "DEMO-BE-1", "DEMO", List.of("be"), "new", "Task");
+            case "202" -> new JiraIssueDetails("202", "DEMO-FE-1", "DEMO", List.of("fe"), "new", "Task");
+            default -> null;
+        }, new JiraBlocksRoutingPolicy(blocksSink));
         JiraWebhookController controller = new JiraWebhookController(
-                SECRET, new JiraWebhookSignatureValidator(), new JiraWebhookRegistry(), notifications, mapper);
+                SECRET, new JiraWebhookSignatureValidator(), new JiraWebhookRegistry(), notifications,
+                blocks, mapper);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .addFilters(new TelegramWebhookBodyLimitFilter(1_048_576))
                 .build();
@@ -94,6 +102,22 @@ class JiraWebhookControllerTest {
 
         assertEquals(2, telegram.calls);
         assertEquals(1, telegram.messages.size());
+    }
+
+    @Test
+    void signedLinkWebhookRoutesOnceAndDuplicateDeliveryIsSuppressed() throws Exception {
+        byte[] body = mapper.writeValueAsBytes(Map.of(
+                "webhookEvent", "issuelink_created",
+                "timestamp", System.currentTimeMillis(),
+                "issueLink", Map.of(
+                        "id", "synthetic-link-1", "sourceIssueId", "101", "destinationIssueId", "202",
+                        "issueLinkType", Map.of("name", "Blocks", "outwardName", "blocks"))));
+
+        send(body, "blocks-link-event").andExpect(status().isOk());
+        send(body, "blocks-link-event").andExpect(status().isOk());
+
+        assertEquals(1, blocksSink.notices().size());
+        assertEquals(JiraBlocksRoutingPolicy.Team.FE, blocksSink.notices().getFirst().recipient());
     }
 
     private org.springframework.test.web.servlet.ResultActions send(byte[] body, String identifier) throws Exception {

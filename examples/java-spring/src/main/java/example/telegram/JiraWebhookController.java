@@ -18,6 +18,7 @@ public class JiraWebhookController {
     private final JiraWebhookSignatureValidator signatures;
     private final JiraWebhookRegistry registry;
     private final JiraIssueNotificationService notifications;
+    private final JiraBlocksWebhookService blocks;
     private final ObjectMapper mapper;
 
     public JiraWebhookController(
@@ -25,11 +26,13 @@ public class JiraWebhookController {
             JiraWebhookSignatureValidator signatures,
             JiraWebhookRegistry registry,
             JiraIssueNotificationService notifications,
+            JiraBlocksWebhookService blocks,
             ObjectMapper mapper) {
         this.webhookSecret = webhookSecret;
         this.signatures = signatures;
         this.registry = registry;
         this.notifications = notifications;
+        this.blocks = blocks;
         this.mapper = mapper;
     }
 
@@ -60,10 +63,16 @@ public class JiraWebhookController {
                 return ResponseEntity.badRequest().build();
             }
             String event = payload.path("webhookEvent").asText("");
-            if (!"jira:issue_created".equals(event) && !"jira:issue_updated".equals(event)) {
+            if (!"jira:issue_created".equals(event) && !"jira:issue_updated".equals(event)
+                    && !"issuelink_created".equals(event) && !"issuelink_deleted".equals(event)) {
                 return ResponseEntity.ok().build();
             }
-            registry.processOnce(identifier, () -> notifications.notifyIfSignificant(payload));
+            registry.processOnce(identifier, () -> {
+                blocks.process(payload);
+                if ("jira:issue_created".equals(event) || "jira:issue_updated".equals(event)) {
+                    notifications.notifyIfSignificant(payload);
+                }
+            });
             return ResponseEntity.ok().build();
         } catch (JacksonException exception) {
             return ResponseEntity.badRequest().build();
