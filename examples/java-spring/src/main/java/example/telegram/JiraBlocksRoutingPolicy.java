@@ -3,8 +3,8 @@ package example.telegram;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,44 +12,59 @@ import java.util.Set;
 /** Throwaway, process-local routing policy for synthetic Jira Blocks relations. */
 public final class JiraBlocksRoutingPolicy {
     private final FakeNotificationSink sink;
+    private final Map<String, RelationProgress> relationProgress = new HashMap<>();
     private final Map<String, NotifiedRelation> notifiedRelations = new HashMap<>();
-    private final Set<String> noticedTargets = new HashSet<>();
-    private final Map<String, State> lastStates = new HashMap<>();
+    private final Map<String, Episode> openEpisodes = new HashMap<>();
+    private long nextEpisodeNumber = 1;
 
     public JiraBlocksRoutingPolicy(FakeNotificationSink sink) {
         this.sink = sink;
     }
 
-    /** Groups one observed batch before recording notices, so one target gets one aggregate. */
+    /** Routes one synthetic batch and aggregates new blockers into an open target episode. */
     public synchronized RouteCounts route(List<Relation> batch) {
         int notices = 0;
         int lifecycle = 0;
         int suppressed = 0;
         int duplicates = 0;
+        int stale = 0;
+        int aggregatedBlockers = 0;
         Map<String, List<Relation>> candidatesByTarget = new LinkedHashMap<>();
+        Map<String, Set<Team>> targetTeamsByTarget = new HashMap<>();
 
         for (Relation relation : batch) {
-            State previous = lastStates.get(relation.id());
-            if (previous == relation.state()) {
+            RelationProgress previous = relationProgress.get(relation.id());
+            if (previous != null && relation.eventVersion() < previous.version()) {
+                stale++;
+                continue;
+            }
+            if (previous != null && relation.eventVersion() == previous.version()) {
                 duplicates++;
                 continue;
             }
+            if (previous != null && previous.state() == relation.state()) {
+                relationProgress.put(relation.id(), new RelationProgress(relation.eventVersion(), relation.state()));
+                duplicates++;
+                continue;
+            }
+            relationProgress.put(relation.id(), new RelationProgress(relation.eventVersion(), relation.state()));
 
-            lastStates.put(relation.id(), relation.state());
             if (relation.state() == State.DONE_BEFORE_START) {
                 suppressed++;
                 continue;
             }
 
-            if (relation.state() == State.RESOLVED || relation.state() == State.REMOVED
-                    || relation.state() == State.DONE) {
+            if (isTerminal(relation.state())) {
                 NotifiedRelation notified = notifiedRelations.get(relation.id());
-                if (notified != null && previous != relation.state()) {
-                    sink.recordLifecycleUpdate(notified.recipient(), notified.targetKey(), relation.id());
-                    lifecycle++;
-                } else {
+                if (notified == null) {
                     suppressed++;
+                    continue;
                 }
+                sink.recordLifecycleUpdate(notified.episode().id, notified.recipient(),
+                        notified.targetKey(), relation.id(), relation.state());
+                notified.episode().activeRelationIds.remove(relation.id());
+                lifecycle++;
+                closeIfEmpty(notified.episode());
                 continue;
             }
 
@@ -60,16 +75,24 @@ public final class JiraBlocksRoutingPolicy {
 
             NotifiedRelation notified = notifiedRelations.get(relation.id());
             if (notified != null) {
-                if (previous == State.RESOLVED || previous == State.REMOVED || previous == State.DONE) {
-                    sink.recordLifecycleUpdate(notified.recipient(), notified.targetKey(), relation.id());
-                    lifecycle++;
-                } else {
-                    suppressed++;
+                Episode episode = openEpisodes.get(notified.targetKey());
+                if (episode == null) {
+                    episode = notified.episode();
+                    openEpisodes.put(notified.targetKey(), episode);
                 }
+                episode.activeRelationIds.add(relation.id());
+                notifiedRelations.put(relation.id(), notified.inEpisode(episode));
+                sink.recordLifecycleUpdate(episode.id, notified.recipient(),
+                        notified.targetKey(), relation.id(), State.ACTIVE);
+                lifecycle++;
                 continue;
             }
 
-            if (!eligible(relation) || noticedTargets.contains(relation.targetKey())) {
+            if (isNewExplicitRelation(relation) && isKnownTeam(relation.targetTeam())) {
+                targetTeamsByTarget.computeIfAbsent(relation.targetKey(), ignored -> new LinkedHashSet<>())
+                        .add(relation.targetTeam());
+            }
+            if (!eligible(relation)) {
                 suppressed++;
                 continue;
             }
@@ -81,35 +104,85 @@ public final class JiraBlocksRoutingPolicy {
             Relation first = relations.getFirst();
             boolean consistentRecipient = relations.stream()
                     .allMatch(relation -> relation.targetTeam() == first.targetTeam());
-            if (!consistentRecipient) {
+            boolean consistentTargetClassification = targetTeamsByTarget
+                    .getOrDefault(first.targetKey(), Set.of()).size() <= 1;
+            Episode currentEpisode = openEpisodes.get(first.targetKey());
+            boolean matchesCurrentRecipient = currentEpisode == null
+                    || currentEpisode.recipient == first.targetTeam();
+            if (!consistentRecipient || !consistentTargetClassification || !matchesCurrentRecipient) {
                 suppressed += relations.size();
                 continue;
             }
-            sink.recordNotice(first.targetTeam(), first.targetKey(),
-                    relations.stream().map(Relation::blockerKey).distinct().toList());
-            noticedTargets.add(first.targetKey());
-            relations.forEach(relation -> notifiedRelations.put(relation.id(),
-                    new NotifiedRelation(first.targetKey(), first.targetTeam())));
-            notices++;
+
+            List<String> blockerKeys = relations.stream().map(Relation::blockerKey).distinct().toList();
+            Episode episode = currentEpisode;
+            if (episode == null) {
+                String episodeId = first.targetKey() + "/episode-" + nextEpisodeNumber++;
+                episode = new Episode(episodeId, first.targetKey(), first.targetTeam());
+                openEpisodes.put(first.targetKey(), episode);
+                sink.recordNotice(episode.id, episode.recipient, episode.targetKey, blockerKeys);
+                notices++;
+            } else {
+                sink.appendBlockers(episode.id, blockerKeys);
+                aggregatedBlockers += blockerKeys.size();
+            }
+
+            for (Relation relation : relations) {
+                episode.activeRelationIds.add(relation.id());
+                notifiedRelations.put(relation.id(),
+                        new NotifiedRelation(episode.targetKey, episode.recipient, episode));
+            }
         }
-        return new RouteCounts(notices, lifecycle, suppressed, duplicates);
+
+        return new RouteCounts(notices, lifecycle, suppressed, duplicates, stale, aggregatedBlockers);
+    }
+
+    private void closeIfEmpty(Episode episode) {
+        if (episode.activeRelationIds.isEmpty()) {
+            openEpisodes.remove(episode.targetKey, episode);
+        }
+    }
+
+    private static boolean isTerminal(State state) {
+        return state == State.RESOLVED || state == State.REMOVED || state == State.DONE;
     }
 
     private static boolean eligible(Relation relation) {
-        return relation.explicitBlocks()
-                && relation.newRelation()
-                && !relation.historical()
+        return isNewExplicitRelation(relation)
                 && !relation.ambiguousEpic()
                 && isKnownTeam(relation.blockerTeam())
                 && isKnownTeam(relation.targetTeam())
                 && relation.blockerTeam() != relation.targetTeam();
     }
 
+    private static boolean isNewExplicitRelation(Relation relation) {
+        return relation.explicitBlocks() && relation.newRelation() && !relation.historical();
+    }
+
     private static boolean isKnownTeam(Team team) {
         return team == Team.BE || team == Team.FE;
     }
 
-    private record NotifiedRelation(String targetKey, Team recipient) {}
+    private record RelationProgress(long version, State state) {}
+
+    private record NotifiedRelation(String targetKey, Team recipient, Episode episode) {
+        private NotifiedRelation inEpisode(Episode currentEpisode) {
+            return new NotifiedRelation(targetKey, recipient, currentEpisode);
+        }
+    }
+
+    private static final class Episode {
+        private final String id;
+        private final String targetKey;
+        private final Team recipient;
+        private final LinkedHashSet<String> activeRelationIds = new LinkedHashSet<>();
+
+        private Episode(String id, String targetKey, Team recipient) {
+            this.id = id;
+            this.targetKey = targetKey;
+            this.recipient = recipient;
+        }
+    }
 
     public enum Team { BE, FE, UNKNOWN, DUAL }
 
@@ -122,7 +195,7 @@ public final class JiraBlocksRoutingPolicy {
             Team blockerTeam,
             Team targetTeam,
             State state,
-            String eventVersion,
+            long eventVersion,
             boolean explicitBlocks,
             boolean newRelation,
             boolean historical,
@@ -132,7 +205,7 @@ public final class JiraBlocksRoutingPolicy {
                     eventVersion, explicitBlocks, newRelation, historical, ambiguousEpic);
         }
 
-        public Relation withEventVersion(String value) {
+        public Relation withEventVersion(long value) {
             return new Relation(id, blockerKey, targetKey, blockerTeam, targetTeam, state,
                     value, explicitBlocks, newRelation, historical, ambiguousEpic);
         }
@@ -158,5 +231,7 @@ public final class JiraBlocksRoutingPolicy {
         }
     }
 
-    public record RouteCounts(int notices, int lifecycleUpdates, int suppressed, int duplicates) {}
+    public record RouteCounts(
+            int notices, int lifecycleUpdates, int suppressed, int duplicates,
+            int stale, int aggregatedBlockers) {}
 }
